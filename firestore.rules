@@ -10,10 +10,14 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
       match /orders/{orderId} {
-      allow create: if true;
-      allow read: if isStaff();
-      allow update: if isStaff();
-      allow delete: if isAdmin();
+        allow create: if true;
+        allow read: if isStaff() || (signedIn() && resource.data.userId == request.auth.uid);
+        allow update: if isStaff();
+        allow delete: if isAdmin();
+      }
+      match /customers/{customerId} {
+        allow read, create, update: if signedIn() && request.auth.uid == customerId;
+        allow delete: if signedIn() && request.auth.uid == customerId;
       }
       match /staff/{staffId} {
         allow read: if isAdmin();
