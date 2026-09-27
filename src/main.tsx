@@ -159,7 +159,7 @@ const initial: Brand = {
 };
 const load = (): Brand => {
   try {
-    const stored = JSON.parse(localStorage.getItem("qr-caffe-brand") || "{}");
+    const stored = JSON.parse(localStorage.getItem("jackx-brand") || "{}");
     return {
       ...initial,
       ...stored,
@@ -195,7 +195,7 @@ const load = (): Brand => {
 };
 const save = (brand: Brand) => {
   try {
-    localStorage.setItem("qr-caffe-brand", JSON.stringify(brand));
+    localStorage.setItem("jackx-brand", JSON.stringify(brand));
     return true;
   } catch {
     return false;
@@ -418,7 +418,7 @@ function AdminPage({
     <main className="admin">
       <header className="admin-head">
         <div>
-          <span className="kicker">QR CAFFE / BRAND STUDIO</span>
+          <span className="kicker">JACKX / BRAND STUDIO</span>
           <h1>لوحة تحكم المطعم</h1>
           <p>ابنِ صفحة QR مميزة لمطعمك وسيب هويتك تظهر كما تريد.</p>
         </div>
@@ -603,7 +603,7 @@ function AdminPage({
         <div className="section-head"><span>04</span><div><h2>هوية أسفل الصفحة</h2><p>لوجو شركتك وتوقيعك وبيانات التواصل.</p></div></div>
           <div className="company-grid">
           <label className="upload"><span>لوجو الشركة <small>PNG أو JPG</small></span><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; fileToDataUrl(file, 512).then((data) => update("companyLogo", data)); }} /><ImagePlus size={18} /></label>
-          <label>اسم الشركة / البراند<input value={draft.companyName} onChange={(e) => update("companyName", e.target.value)} placeholder="QR CAFFE" /></label>
+          <label>اسم الشركة / البراند<input value={draft.companyName} onChange={(e) => update("companyName", e.target.value)} placeholder="JACKX" /></label>
           <label>التوقيع أو الوصف<input value={draft.companySignature} onChange={(e) => update("companySignature", e.target.value)} placeholder="تصميم وتطوير" /></label>
           <label>رقم التواصل<input value={draft.companyPhone} onChange={(e) => update("companyPhone", e.target.value)} placeholder="01xxxxxxxxx" /></label>
           <label>رابط الموقع أو الصفحة<input value={draft.companyWebsite} onChange={(e) => update("companyWebsite", e.target.value)} placeholder="https://..." /></label>
@@ -671,9 +671,15 @@ function App() {
     window.addEventListener("storage", refreshFromStorage);
     return () => window.removeEventListener("storage", refreshFromStorage);
   }, []);
+  const requestedView = new URLSearchParams(location.search).get("view");
+  const hostView =
+    location.hostname === "jackx-qr-scorpion.vercel.app"
+      ? "client"
+      : location.hostname === "admin-jackx-qr-scorpion.vercel.app"
+        ? "admin"
+        : null;
   const client =
-    new URLSearchParams(location.search).get("view") === "client" ||
-    location.pathname === "/client";
+    (requestedView ?? hostView) === "client" || location.pathname === "/client";
   return client ? (
     <ClientPage brand={brand} />
   ) : (
