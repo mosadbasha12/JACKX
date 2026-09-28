@@ -30,16 +30,19 @@ import {
   createOrder,
   createStaffAccountByUsername,
   loadOperationMode,
+  loadPaymentMethods,
   loginCustomer,
   loginStaffByUsername,
   registerCustomer,
   saveMenuItem,
   saveOperationMode,
+  savePaymentMethods,
   setStaffRole,
   updateOrder,
   watchCustomerOrders,
   watchOrders,
   type OperationMode,
+  type PaymentMethod,
 } from "./firebase";
 
 type Product = {
@@ -417,7 +420,7 @@ function StaffLogin({ onLogin }: { onLogin: () => void }) {
     </main>
   );
 }
-function Client({ addOrder }: { addOrder: (o: Order) => void }) {
+function Client({ addOrder, paymentMethods }: { addOrder: (o: Order) => void; paymentMethods: PaymentMethod[] }) {
   const [cat, setCat] = useState("كل الأصناف"),
     [q, setQ] = useState(""),
     [cart, setCart] = useState<Line[]>([]),
@@ -663,7 +666,7 @@ function Client({ addOrder }: { addOrder: (o: Order) => void }) {
               ) : (
                 <input name="table" required placeholder="رقم الترابيزة" />
               )}
-              {!customerUid && <select name="payment"><option>نقدي</option><option>فيزا / كارت</option></select>}
+              {!customerUid && <select name="payment">{paymentMethods.map((method) => <option key={method} value={method}>{method === "cash" ? "نقدي" : method === "card" ? "فيزا / كارت" : "محفظة إلكترونية"}</option>)}</select>}
               <button className="btn" type="submit">
                 تأكيد الطلب <Check size={17} />
               </button>
@@ -770,7 +773,7 @@ function Cashier({
     </main>
   );
 }
-function Admin({ orders, operationMode, onOperationModeChange }: { orders: Order[]; operationMode: OperationMode; onOperationModeChange: (mode: OperationMode) => void }) {
+function Admin({ orders, operationMode, onOperationModeChange, paymentMethods, onPaymentMethodsChange }: { orders: Order[]; operationMode: OperationMode; onOperationModeChange: (mode: OperationMode) => void; paymentMethods: PaymentMethod[]; onPaymentMethodsChange: (methods: PaymentMethod[]) => void }) {
   const [username, setUsername] = useState(""),
     [password, setPassword] = useState(""),
     [showPassword, setShowPassword] = useState(false),
@@ -799,6 +802,7 @@ function Admin({ orders, operationMode, onOperationModeChange }: { orders: Order
     setTimeout(() => setSaved(""), 3500);
   };
   const changeMode = async (mode: OperationMode) => { onOperationModeChange(mode); await saveOperationMode(mode); };
+  const togglePayment = async (method: PaymentMethod) => { const next = paymentMethods.includes(method) ? paymentMethods.filter((item) => item !== method) : [...paymentMethods, method]; if (!next.length) return; onPaymentMethodsChange(next); await savePaymentMethods(next); };
   const saveExpense = async (e: React.FormEvent) => { e.preventDefault(); if (!expenseTitle || !expenseAmount) return; await addExpense({ title: expenseTitle, amount: Number(expenseAmount) }); setExpenseTitle(""); setExpenseAmount(""); setSaved("تم تسجيل المصروف"); setTimeout(() => setSaved(""), 2500); };
   const saveNewMenuItem = async (e: React.FormEvent) => { e.preventDefault(); if (!menuName || !menuPrice) return; await saveMenuItem({ id: `custom-${Date.now()}`, name: menuName, en: menuName, price: Number(menuPrice), cat: "إضافات", station: "bar", available: true }); setMenuName(""); setMenuPrice(""); setSaved("تمت إضافة الصنف للمنيو"); setTimeout(() => setSaved(""), 2500); };
   return (
@@ -857,6 +861,10 @@ function Admin({ orders, operationMode, onOperationModeChange }: { orders: Order
           ))}
         </section>
         <section className="table staff-panel">
+          <h2>طرق الدفع المتاحة</h2>
+          <p>اختار طرق الدفع التي تظهر للعميل عند تأكيد الطلب.</p>
+          <div className="payment-settings">{(["cash", "card", "wallet"] as PaymentMethod[]).map((method) => <label key={method}><input type="checkbox" checked={paymentMethods.includes(method)} onChange={() => void togglePayment(method)} />{method === "cash" ? "نقدي" : method === "card" ? "فيزا / كارت" : "محفظة إلكترونية"}</label>)}</div>
+          <hr />
           <h2>إدارة المنيو</h2>
           <form onSubmit={saveNewMenuItem}><input required placeholder="اسم الصنف" value={menuName} onChange={(e) => setMenuName(e.target.value)} /><input required type="number" min="0" placeholder="السعر" value={menuPrice} onChange={(e) => setMenuPrice(e.target.value)} /><button className="btn" type="submit">إضافة صنف</button></form>
           <hr />
@@ -908,6 +916,7 @@ function App() {
   const [orders, setOrders] = useState<Order[]>(seed),
     [loggedIn, setLoggedIn] = useState(false),
     [operationMode, setOperationMode] = useState<OperationMode>("cashier");
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(["cash", "card"]);
   const view =
     new URLSearchParams(location.search).get("view") ||
     (location.pathname.includes("cashier")
@@ -921,6 +930,7 @@ function App() {
       if (next.length) setOrders(next as Order[]);
     }, console.error);
   }, [view, loggedIn]);
+  useEffect(() => { loadPaymentMethods().then(setPaymentMethods).catch(console.error); }, []);
   useEffect(() => {
     if (view === "client" || !loggedIn) return;
     loadOperationMode().then(setOperationMode).catch(console.error);
@@ -938,10 +948,10 @@ function App() {
     return <StaffLogin onLogin={() => setLoggedIn(true)} />;
   if (view === "cashier")
     return <Cashier orders={orders} setOrders={setOrders} operationMode={operationMode} />;
-  if (view === "admin") return <Admin orders={orders} operationMode={operationMode} onOperationModeChange={setOperationMode} />;
+  if (view === "admin") return <Admin orders={orders} operationMode={operationMode} onOperationModeChange={setOperationMode} paymentMethods={paymentMethods} onPaymentMethodsChange={setPaymentMethods} />;
   return (
     <>
-      <Client addOrder={add} />
+      <Client addOrder={add} paymentMethods={paymentMethods} />
       <FavoriteHearts />
       <CustomerPortal />
     </>

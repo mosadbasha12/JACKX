@@ -97,6 +97,13 @@ export const loadOperationMode = async (): Promise<OperationMode> => {
 };
 export const saveOperationMode = (mode: OperationMode) =>
   setDoc(doc(db, "settings", "operations"), { mode, updatedAt: serverTimestamp() }, { merge: true });
+export type PaymentMethod = "cash" | "card" | "wallet";
+export const loadPaymentMethods = async (): Promise<PaymentMethod[]> => {
+  const snapshot = await getDoc(doc(db, "settings", "payments"));
+  return (snapshot.data()?.methods as PaymentMethod[]) || ["cash", "card"];
+};
+export const savePaymentMethods = (methods: PaymentMethod[]) =>
+  setDoc(doc(db, "settings", "payments"), { methods, updatedAt: serverTimestamp() }, { merge: true });
 export const addExpense = (expense: { title: string; amount: number; note?: string }) =>
   addDoc(collection(db, "expenses"), { ...expense, createdAt: serverTimestamp() });
 export const saveMenuItem = (item: Record<string, unknown>) =>
