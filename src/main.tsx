@@ -15,6 +15,7 @@ import {
   Printer,
   Receipt,
   Search,
+  Settings2,
   ShoppingBag,
   Store,
   Truck,
@@ -775,6 +776,7 @@ function Cashier({
   );
 }
 function Admin({ orders, operationMode, onOperationModeChange, paymentMethods, onPaymentMethodsChange }: { orders: Order[]; operationMode: OperationMode; onOperationModeChange: (mode: OperationMode) => void; paymentMethods: PaymentMethod[]; onPaymentMethodsChange: (methods: PaymentMethod[]) => void }) {
+  const [activeTab, setActiveTab] = useState<"overview" | "menu" | "orders" | "expenses" | "settings">("overview");
   const [username, setUsername] = useState(""),
     [password, setPassword] = useState(""),
     [showPassword, setShowPassword] = useState(false),
@@ -807,27 +809,30 @@ function Admin({ orders, operationMode, onOperationModeChange, paymentMethods, o
   const saveExpense = async (e: React.FormEvent) => { e.preventDefault(); if (!expenseTitle || !expenseAmount) return; await addExpense({ title: expenseTitle, amount: Number(expenseAmount) }); setExpenseTitle(""); setExpenseAmount(""); setSaved("تم تسجيل المصروف"); setTimeout(() => setSaved(""), 2500); };
   const saveNewMenuItem = async (e: React.FormEvent) => { e.preventDefault(); if (!menuName || !menuPrice) return; await saveMenuItem({ id: `custom-${Date.now()}`, name: menuName, en: menuName, price: Number(menuPrice), cat: "إضافات", station: "bar", available: true }); setMenuName(""); setMenuPrice(""); setSaved("تمت إضافة الصنف للمنيو"); setTimeout(() => setSaved(""), 2500); };
   return (
-    <main className="admin" dir="rtl">
+    <main className={`admin tab-${activeTab}`} dir="rtl">
       <aside>
         <Logo />
         <h3>لوحة JACKX</h3>
-        <button className="active">
+        <button className={activeTab === "overview" ? "active" : ""} onClick={() => setActiveTab("overview")}>
           <LayoutDashboard /> نظرة عامة
         </button>
-        <button>
+        <button className={activeTab === "menu" ? "active" : ""} onClick={() => setActiveTab("menu")}>
           <MenuIcon /> إدارة المنيو
         </button>
-        <button>
+        <button className={activeTab === "orders" ? "active" : ""} onClick={() => setActiveTab("orders")}>
           <ShoppingBag /> الطلبات
         </button>
-        <button>
+        <button className={activeTab === "expenses" ? "active" : ""} onClick={() => setActiveTab("expenses")}>
           <Wallet /> المصروفات
+        </button>
+        <button className={activeTab === "settings" ? "active" : ""} onClick={() => setActiveTab("settings")}>
+          <Settings2 /> الإعدادات
         </button>
       </aside>
       <section>
         <header>
           <label>JACKX / ADMIN</label>
-          <h1>نظرة عامة</h1>
+          <h1>{activeTab === "overview" ? "نظرة عامة" : activeTab === "menu" ? "إدارة المنيو" : activeTab === "orders" ? "الطلبات" : activeTab === "expenses" ? "المصروفات" : "الإعدادات"}</h1>
         </header>
         <div className="banner">
           <Zap /> خلّي يومك أخف، وإدارتك أذكى.
