@@ -442,7 +442,7 @@ function Client({
 }: {
   addOrder: (o: Order) => void;
   paymentMethods: PaymentMethod[];
-  menuItems: Product[];
+  menuItems: Product[] | null;
 }) {
   const [cat, setCat] = useState("كل الأصناف"),
     [q, setQ] = useState(""),
@@ -462,7 +462,7 @@ function Client({
         ? c.map((x) => (x.id === p.id ? { ...x, qty: x.qty + 1 } : x))
         : [...c, { ...p, qty: 1 }],
     );
-  const list = menuItems.filter(
+  const list = (menuItems || []).filter(
     (p) =>
       (cat === "كل الأصناف" || p.cat === cat) &&
       `${p.name}${p.en}`.toLowerCase().includes(q.toLowerCase()),
@@ -561,7 +561,7 @@ function Client({
           ))}
         </div>
         <div className="grid">
-          {list.map((p) => (
+          {menuItems === null ? <div className="menu-loading">جاري تحميل المنيو...</div> : list.length ? list.map((p) => (
             <article key={p.id}>
               <img src={p.img} />
               <button className="plus" onClick={() => add(p)}>
@@ -576,7 +576,7 @@ function Client({
                 </button>
               </div>
             </article>
-          ))}
+          )) : <div className="menu-loading">لا توجد أصناف متاحة حاليًا.</div>}
         </div>
       </section>
       <section id="story" className="story">
@@ -1501,7 +1501,7 @@ function App() {
   const [orders, setOrders] = useState<Order[]>(seed),
     [loggedIn, setLoggedIn] = useState(false),
     [operationMode, setOperationMode] = useState<OperationMode>("cashier");
-  const [menuItems, setMenuItems] = useState<Product[]>(P);
+  const [menuItems, setMenuItems] = useState<Product[] | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
     "cash",
     "card",
@@ -1525,7 +1525,7 @@ function App() {
   useEffect(
     () =>
       watchMenu((items) => {
-        if (items.length) setMenuItems(uniqueProducts(items as Product[]));
+        setMenuItems(uniqueProducts(items as Product[]));
       }, console.error),
     [],
   );
