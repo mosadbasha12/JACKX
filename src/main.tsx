@@ -568,8 +568,8 @@ function Client({
                 <Plus />
               </button>
               <div>
-                <small>{p.en}</small>
-                <h3>{p.name}</h3>
+                <small>{p.name}</small>
+                <h3>{p.en}</h3>
                 <strong>{eg(p.price)}</strong>
                 <button className="order" onClick={() => setModal(p)}>
                   اطلبه دلوقتي <ArrowLeft size={15} />
@@ -613,8 +613,8 @@ function Client({
               <>
                 <img src={modal.img} />
                 <div className="pad">
-                  <label>{modal.en}</label>
-                  <h2>{modal.name}</h2>
+                  <label>{modal.name}</label>
+                  <h2>{modal.en}</h2>
                   <p>{modal.description || "اختيار JACKX المميز بطعم طازج وتجربة مختلفة."}</p>
                   <div className="row">
                     <b>{eg(modal.price)}</b>
