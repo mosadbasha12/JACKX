@@ -77,62 +77,6 @@ type Order = {
   items: Line[];
   status: "new" | "preparing" | "ready" | "done";
 };
-const P: Product[] = [
-  {
-    id: 1,
-    name: "سبانيش لاتيه",
-    en: "Spanish Latte",
-    price: 95,
-    cat: "قهوة",
-    img: "https://images.unsplash.com/photo-1570968915860-54d5c301fa9f?auto=format&fit=crop&w=900&q=85",
-    station: "bar",
-  },
-  {
-    id: 2,
-    name: "آيس وايت موكا",
-    en: "Iced White Mocha",
-    price: 115,
-    cat: "مشروبات باردة",
-    img: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&w=900&q=85",
-    station: "bar",
-  },
-  {
-    id: 3,
-    name: "كرواسون بندق",
-    en: "Hazelnut Croissant",
-    price: 85,
-    cat: "فطور",
-    img: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=900&q=85",
-    station: "kitchen",
-  },
-  {
-    id: 4,
-    name: "ماتشا لاتيه",
-    en: "Matcha Latte",
-    price: 120,
-    cat: "مشروبات باردة",
-    img: "https://images.unsplash.com/photo-1515823064-d6e0c04616a7?auto=format&fit=crop&w=900&q=85",
-    station: "bar",
-  },
-  {
-    id: 5,
-    name: "بان كيك جاك",
-    en: "Jack Pancakes",
-    price: 145,
-    cat: "فطور",
-    img: "https://images.unsplash.com/photo-1528207776546-365bb710ee93?auto=format&fit=crop&w=900&q=85",
-    station: "kitchen",
-  },
-  {
-    id: 6,
-    name: "تشيز كيك التوت",
-    en: "Berry Cheesecake",
-    price: 135,
-    cat: "حلويات",
-    img: "https://images.unsplash.com/photo-1533134242443-d4fd215305ad?auto=format&fit=crop&w=900&q=85",
-    station: "kitchen",
-  },
-];
 const cats = ["كل الأصناف", "قهوة", "مشروبات باردة", "فطور", "حلويات"];
 const uniqueProducts = (items: Product[], includeUnavailable = false) =>
   Array.from(
@@ -143,31 +87,6 @@ const uniqueProducts = (items: Product[], includeUnavailable = false) =>
     ).values(),
   );
 const eg = (n: number) => `${n} ج.م`;
-const seed: Order[] = [
-  {
-    id: "#JX-1048",
-    type: "dinein",
-    name: "أحمد محمد",
-    phone: "01012345678",
-    table: "12",
-    payment: "نقدي",
-    items: [
-      { ...P[0], qty: 2 },
-      { ...P[5], qty: 1 },
-    ],
-    status: "new",
-  },
-  {
-    id: "#JX-1047",
-    type: "delivery",
-    name: "سارة علي",
-    phone: "01198765432",
-    address: "التجمع الخامس",
-    payment: "فيزا",
-    items: [{ ...P[1], qty: 1 }],
-    status: "preparing",
-  },
-];
 function Logo() {
   return (
     <div className="logo">
@@ -312,7 +231,7 @@ function CustomerAuth({ onReady }: { onReady: () => void }) {
     </div>
   );
 }
-function CustomerPortal() {
+function CustomerPortal({ menuItems }: { menuItems: Product[] | null }) {
   const [open, setOpen] = useState(false),
     [ready, setReady] = useState(!!auth.currentUser),
     [orders, setOrders] = useState<any[]>([]),
@@ -395,7 +314,7 @@ function CustomerPortal() {
                   </div>
                 ) : (
                   <div className="customer-list">
-                    {P.map((p) => (
+                    {(menuItems || []).map((p) => (
                       <button
                         className="favorite-row"
                         key={p.id}
@@ -494,7 +413,10 @@ function Client({
     [cart, setCart] = useState<Line[]>([]),
     [modal, setModal] = useState<Product | null>(null),
     [checkout, setCheckout] = useState<"delivery" | "dinein" | null>(null),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState(""),
+    [favorites, setFavorites] = useState<number[]>(() =>
+      JSON.parse(localStorage.getItem("jackx-favorites") || "[]"),
+    );
   const [customerUid, setCustomerUid] = useState(auth.currentUser?.uid || "");
   useEffect(() => {
     const sync = () => setCustomerUid(auth.currentUser?.uid || "");
@@ -522,6 +444,14 @@ function Client({
       `${p.name}${p.en}`.toLowerCase().includes(q.toLowerCase()),
   );
   const total = cart.reduce((s, x) => s + x.price * x.qty, 0);
+  const toggleFavorite = (id: number) =>
+    setFavorites((current) => {
+      const next = current.includes(id)
+        ? current.filter((itemId) => itemId !== id)
+        : [...current, id];
+      localStorage.setItem("jackx-favorites", JSON.stringify(next));
+      return next;
+    });
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -549,7 +479,7 @@ function Client({
         <InstallButton />
         <button
           className="cart"
-          onClick={() => setModal({ ...P[0], id: -1, name: "السلة" })}
+          onClick={() => setModal({ ...(menuItems?.[0] || { en: "YOUR ORDER", price: 0, img: "", cat: "", station: "bar" }), id: -1, name: "السلة" })}
         >
           <ShoppingBag size={18} /> السلة{" "}
           {cart.length > 0 && <b>{cart.reduce((s, x) => s + x.qty, 0)}</b>}
@@ -569,7 +499,7 @@ function Client({
           </a>
         </div>
         <div className="hero-img reveal-on-scroll is-visible">
-          <img src={P[0].img} />
+          <img src={menuItems?.[0]?.img || "/jackx-logo.png"} />
           <span>
             طازج كل يوم
             <br />
@@ -605,8 +535,15 @@ function Client({
         </div>
         <div className="grid">
           {menuItems === null ? <div className="menu-loading">جاري تحميل المنيو...</div> : list.length ? list.map((p) => (
-            <article className="reveal-on-scroll" key={p.id}>
-              <img src={p.img} />
+              <article className="reveal-on-scroll" key={p.id}>
+                <img src={p.img} />
+                <button
+                  className="favorite-card"
+                  aria-label="إضافة للمفضلة"
+                  onClick={() => toggleFavorite(p.id)}
+                >
+                  {favorites.includes(p.id) ? "♥" : "♡"}
+                </button>
               <button className="plus" onClick={() => add(p)}>
                 <Plus />
               </button>
@@ -901,7 +838,7 @@ function Admin({
   const [activeTab, setActiveTab] = useState<
     "overview" | "menu" | "orders" | "expenses" | "customers" | "settings"
   >("overview");
-  const [menuItems, setMenuItems] = useState<Product[]>(P),
+  const [menuItems, setMenuItems] = useState<Product[]>([]),
     [menuSearch, setMenuSearch] = useState(""),
     [menuFilter, setMenuFilter] = useState("كل الأقسام"),
     [categories, setCategories] = useState<string[]>(cats.slice(1)),
@@ -1210,13 +1147,13 @@ function Admin({
         </div>
         <div className="admincards">
           <div>
-            <ShoppingBag /> إجمالي الطلبات <b>{orders.length + 126}</b>
+            <ShoppingBag /> إجمالي الطلبات <b>{orders.length}</b>
           </div>
           <div>
             <Receipt /> مبيعات اليوم <b>8,450 ج.م</b>
           </div>
           <div>
-            <ChefHat /> أصناف المنيو <b>{P.length}</b>
+            <ChefHat /> أصناف المنيو <b>{menuItems.length}</b>
           </div>
           <div className="operation-card">
             ⚙️ وضع الطلبات{" "}
@@ -1419,7 +1356,7 @@ function Admin({
                     <td>{eg(item.price)}</td>
                     <td>{item.cat}</td>
                     <td>
-                      <button
+        <button
                         type="button"
                         className={item.available === false ? "status-off" : "status-on"}
                         onClick={() => void toggleMenuAvailability(item)}
@@ -1427,7 +1364,7 @@ function Admin({
                         {item.available === false ? "OFF" : "ON"}
                       </button>
                       <button onClick={() => editMenuItem(item)}>تعديل</button>
-                      <button
+        <button
                         className="danger"
                         onClick={() => removeMenuItem(item.id)}
                       >
@@ -1457,7 +1394,7 @@ function Admin({
               {editingCategory ? "حفظ تعديل القسم" : "إضافة قسم"}
             </button>
             {editingCategory && (
-              <button
+        <button
                 type="button"
                 onClick={() => {
                   setEditingCategory(null);
@@ -1606,7 +1543,7 @@ function Admin({
   );
 }
 function App() {
-  const [orders, setOrders] = useState<Order[]>(seed),
+  const [orders, setOrders] = useState<Order[]>([]),
     [loggedIn, setLoggedIn] = useState(false),
     [operationMode, setOperationMode] = useState<OperationMode>("cashier");
   const [menuItems, setMenuItems] = useState<Product[] | null>(null);
@@ -1676,41 +1613,8 @@ function App() {
         paymentMethods={paymentMethods}
         menuItems={menuItems}
       />
-      <FavoriteHearts />
-      <CustomerPortal />
+      <CustomerPortal menuItems={menuItems} />
     </>
   );
 }
 createRoot(document.getElementById("root")!).render(<App />);
-function FavoriteHearts() {
-  useEffect(() => {
-    const buttons = [
-      ...document.querySelectorAll<HTMLButtonElement>(".grid article .plus"),
-    ];
-    buttons.forEach((button, index) => {
-      if (button.parentElement?.querySelector(".favorite-card")) return;
-      const fav = document.createElement("button");
-      fav.className = "favorite-card";
-      fav.textContent = JSON.parse(
-        localStorage.getItem("jackx-favorites") || "[]",
-      ).includes(P[index]?.id)
-        ? "♥"
-        : "♡";
-      fav.onclick = () => {
-        const old = JSON.parse(localStorage.getItem("jackx-favorites") || "[]");
-        const id = P[index]?.id;
-        const next = old.includes(id)
-          ? old.filter((x: number) => x !== id)
-          : [...old, id];
-        localStorage.setItem("jackx-favorites", JSON.stringify(next));
-        fav.textContent = next.includes(id) ? "♥" : "♡";
-      };
-      button.parentElement?.appendChild(fav);
-    });
-    return () =>
-      buttons.forEach((button) =>
-        button.parentElement?.querySelector(".favorite-card")?.remove(),
-      );
-  }, []);
-  return null;
-}
