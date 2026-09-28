@@ -58,6 +58,7 @@ type Product = {
   cat: string;
   img: string;
   station: "bar" | "kitchen";
+  available?: boolean;
 };
 type Line = Product & { qty: number };
 type Order = {
@@ -129,7 +130,14 @@ const P: Product[] = [
   },
 ];
 const cats = ["كل الأصناف", "قهوة", "مشروبات باردة", "فطور", "حلويات"];
-const uniqueProducts = (items: Product[]) => Array.from(new Map(items.filter((item) => item.available !== false).map((item) => [String(item.id), item])).values());
+const uniqueProducts = (items: Product[]) =>
+  Array.from(
+    new Map(
+      items
+        .filter((item) => item.available !== false)
+        .map((item) => [String(item.id), item]),
+    ).values(),
+  );
 const eg = (n: number) => `${n} ج.م`;
 const seed: Order[] = [
   {
@@ -426,7 +434,15 @@ function StaffLogin({ onLogin }: { onLogin: () => void }) {
     </main>
   );
 }
-function Client({ addOrder, paymentMethods, menuItems }: { addOrder: (o: Order) => void; paymentMethods: PaymentMethod[]; menuItems: Product[] }) {
+function Client({
+  addOrder,
+  paymentMethods,
+  menuItems,
+}: {
+  addOrder: (o: Order) => void;
+  paymentMethods: PaymentMethod[];
+  menuItems: Product[];
+}) {
   const [cat, setCat] = useState("كل الأصناف"),
     [q, setQ] = useState(""),
     [cart, setCart] = useState<Line[]>([]),
@@ -479,7 +495,13 @@ function Client({ addOrder, paymentMethods, menuItems }: { addOrder: (o: Order) 
           <a href="#menu">المنيو</a>
           <a href="#story">عن JACKX</a>
           <a href="#visit">زورنا</a>
-          <a href="https://jackx.scorpion.ddnsfree.com" target="_blank" rel="noreferrer">الموقع الرئيسي</a>
+          <a
+            href="https://jackx.scorpion.ddnsfree.com"
+            target="_blank"
+            rel="noreferrer"
+          >
+            الموقع الرئيسي
+          </a>
         </div>
         <button
           className="cart"
@@ -667,13 +689,30 @@ function Client({ addOrder, paymentMethods, menuItems }: { addOrder: (o: Order) 
               {checkout === "delivery" ? "هنوصلهولك فين؟" : "جاهز نجهز طلبك؟"}
             </h2>
             <form onSubmit={submit}>
-              {!customerUid && <><input name="name" required placeholder="الاسم" /><input name="phone" required placeholder="رقم الموبايل" /></>}
+              {!customerUid && (
+                <>
+                  <input name="name" required placeholder="الاسم" />
+                  <input name="phone" required placeholder="رقم الموبايل" />
+                </>
+              )}
               {checkout === "delivery" ? (
                 <input name="address" required placeholder="العنوان" />
               ) : (
                 <input name="table" required placeholder="رقم الترابيزة" />
               )}
-              {!customerUid && <select name="payment">{paymentMethods.map((method) => <option key={method} value={method}>{method === "cash" ? "نقدي" : method === "card" ? "فيزا / كارت" : "محفظة إلكترونية"}</option>)}</select>}
+              {!customerUid && (
+                <select name="payment">
+                  {paymentMethods.map((method) => (
+                    <option key={method} value={method}>
+                      {method === "cash"
+                        ? "نقدي"
+                        : method === "card"
+                          ? "فيزا / كارت"
+                          : "محفظة إلكترونية"}
+                    </option>
+                  ))}
+                </select>
+              )}
               <button className="btn" type="submit">
                 تأكيد الطلب <Check size={17} />
               </button>
@@ -697,8 +736,23 @@ function Cashier({
   useEffect(() => {
     const count = orders.filter((o) => o.status === "new").length;
     if (count > lastNewCount.current) {
-      try { const ctx = new AudioContext(); const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.frequency.value = 880; gain.gain.value = 0.08; osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.18); } catch { /* browser may block audio until interaction */ }
-      if ("Notification" in window && Notification.permission === "granted") new Notification("طلب JACKX جديد", { body: "يوجد طلب جديد يحتاج المراجعة" });
+      try {
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = 880;
+        gain.gain.value = 0.08;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.18);
+      } catch {
+        /* browser may block audio until interaction */
+      }
+      if ("Notification" in window && Notification.permission === "granted")
+        new Notification("طلب JACKX جديد", {
+          body: "يوجد طلب جديد يحتاج المراجعة",
+        });
     }
     lastNewCount.current = count;
   }, [orders]);
@@ -722,8 +776,15 @@ function Cashier({
       </header>
       <section className="dashbody">
         <label>JACKX / CASHIER</label>
-          <h1>الطلبات الحالية</h1>
-          <p className="mode-pill">وضع التشغيل: {operationMode === "cashier" ? "الكاشير أولًا" : operationMode === "direct-screen" ? "شاشات مباشرة" : "طباعة مباشرة"}</p>
+        <h1>الطلبات الحالية</h1>
+        <p className="mode-pill">
+          وضع التشغيل:{" "}
+          {operationMode === "cashier"
+            ? "الكاشير أولًا"
+            : operationMode === "direct-screen"
+              ? "شاشات مباشرة"
+              : "طباعة مباشرة"}
+        </p>
         <div className="stats">
           <div>
             <Bell /> طلبات جديدة{" "}
@@ -780,13 +841,52 @@ function Cashier({
     </main>
   );
 }
-function Admin({ orders, operationMode, onOperationModeChange, paymentMethods, onPaymentMethodsChange }: { orders: Order[]; operationMode: OperationMode; onOperationModeChange: (mode: OperationMode) => void; paymentMethods: PaymentMethod[]; onPaymentMethodsChange: (methods: PaymentMethod[]) => void }) {
-  const [activeTab, setActiveTab] = useState<"overview" | "menu" | "orders" | "expenses" | "settings">("overview");
-  const [menuItems, setMenuItems] = useState<Product[]>(P), [menuSearch, setMenuSearch] = useState(""), [menuFilter, setMenuFilter] = useState("كل الأقسام"), [categories, setCategories] = useState<string[]>(cats.slice(1)), [editingId, setEditingId] = useState<number | null>(null), [savingMenu, setSavingMenu] = useState(false);
-  const [menuForm, setMenuForm] = useState({ name: "", en: "", img: "", price: "", cat: cats[1], station: "bar" as "bar" | "kitchen" });
-  const [categoryName, setCategoryName] = useState(""), [editingCategory, setEditingCategory] = useState<string | null>(null);
-  useEffect(() => watchMenu((items) => { if (items.length) setMenuItems(uniqueProducts(items as Product[])); }, console.error), []);
-  useEffect(() => watchCategories((items) => { if (items.length) setCategories(items); }, console.error), []);
+function Admin({
+  orders,
+  operationMode,
+  onOperationModeChange,
+  paymentMethods,
+  onPaymentMethodsChange,
+}: {
+  orders: Order[];
+  operationMode: OperationMode;
+  onOperationModeChange: (mode: OperationMode) => void;
+  paymentMethods: PaymentMethod[];
+  onPaymentMethodsChange: (methods: PaymentMethod[]) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "menu" | "orders" | "expenses" | "settings"
+  >("overview");
+  const [menuItems, setMenuItems] = useState<Product[]>(P),
+    [menuSearch, setMenuSearch] = useState(""),
+    [menuFilter, setMenuFilter] = useState("كل الأقسام"),
+    [categories, setCategories] = useState<string[]>(cats.slice(1)),
+    [editingId, setEditingId] = useState<number | null>(null),
+    [savingMenu, setSavingMenu] = useState(false);
+  const [menuForm, setMenuForm] = useState({
+    name: "",
+    en: "",
+    img: "",
+    price: "",
+    cat: cats[1],
+    station: "bar" as "bar" | "kitchen",
+  });
+  const [categoryName, setCategoryName] = useState(""),
+    [editingCategory, setEditingCategory] = useState<string | null>(null);
+  useEffect(
+    () =>
+      watchMenu((items) => {
+        if (items.length) setMenuItems(uniqueProducts(items as Product[]));
+      }, console.error),
+    [],
+  );
+  useEffect(
+    () =>
+      watchCategories((items) => {
+        if (items.length) setCategories(items);
+      }, console.error),
+    [],
+  );
   const [username, setUsername] = useState(""),
     [password, setPassword] = useState(""),
     [showPassword, setShowPassword] = useState(false),
@@ -801,56 +901,228 @@ function Admin({ orders, operationMode, onOperationModeChange, paymentMethods, o
     if (!username || !password) return;
     try {
       await createStaffAccountByUsername(username, password);
-      await setStaffRole(`${username.trim().toLowerCase().replace(/\s+/g, "-")}@staff.jackx.app`, role);
+      await setStaffRole(
+        `${username.trim().toLowerCase().replace(/\s+/g, "-")}@staff.jackx.app`,
+        role,
+      );
       setSaved("تم إنشاء المستخدم وحفظ صلاحيته بنجاح");
       setUsername("");
       setPassword("");
     } catch (error) {
       setSaved(
         error instanceof Error && error.message.includes("already")
-              ? "اسم المستخدم موجود بالفعل، غيّره أو عدّل صلاحيته"
-              : "تعذر إنشاء المستخدم؛ تأكد من الاسم وكلمة المرور",
+          ? "اسم المستخدم موجود بالفعل، غيّره أو عدّل صلاحيته"
+          : "تعذر إنشاء المستخدم؛ تأكد من الاسم وكلمة المرور",
       );
     }
     setTimeout(() => setSaved(""), 3500);
   };
-  const changeMode = async (mode: OperationMode) => { onOperationModeChange(mode); await saveOperationMode(mode); };
-  const togglePayment = async (method: PaymentMethod) => { const next = paymentMethods.includes(method) ? paymentMethods.filter((item) => item !== method) : [...paymentMethods, method]; if (!next.length) return; onPaymentMethodsChange(next); await savePaymentMethods(next); };
-  const saveExpense = async (e: React.FormEvent) => { e.preventDefault(); if (!expenseTitle || !expenseAmount) return; await addExpense({ title: expenseTitle, amount: Number(expenseAmount) }); setExpenseTitle(""); setExpenseAmount(""); setSaved("تم تسجيل المصروف"); setTimeout(() => setSaved(""), 2500); };
-  const saveNewMenuItem = async (e: React.FormEvent) => { e.preventDefault(); if (!menuName || !menuPrice) return; await saveMenuItem({ id: `custom-${Date.now()}`, name: menuName, en: menuName, price: Number(menuPrice), cat: "إضافات", station: "bar", available: true }); setMenuName(""); setMenuPrice(""); setSaved("تمت إضافة الصنف للمنيو"); setTimeout(() => setSaved(""), 2500); };
-  const submitMenuItem = async (e: React.FormEvent) => { e.preventDefault(); if (savingMenu || !menuForm.name || !menuForm.en || !menuForm.price) return; setSavingMenu(true); try { const item = { ...menuForm, id: editingId || Date.now(), price: Number(menuForm.price), available: true }; await saveMenuItem(item); setMenuItems((items) => uniqueProducts(editingId ? items.map((old) => old.id === editingId ? item as Product : old) : [...items, item as Product])); setMenuForm({ name: "", en: "", img: "", price: "", cat: categories[0] || "قهوة", station: "bar" }); setEditingId(null); setSaved("تم حفظ الصنف بنجاح"); } finally { setSavingMenu(false); } };
-  const submitCategory = async (e: React.FormEvent) => { e.preventDefault(); const name = categoryName.trim(); if (!name) return; if (editingCategory && editingCategory !== name) { const affectedItems = menuItems.filter((item) => item.cat === editingCategory); await saveCategory(name); await Promise.all(affectedItems.map((item) => saveMenuItem({ ...item, cat: name }))); await deleteCategory(editingCategory); setCategories((items) => items.map((item) => item === editingCategory ? name : item)); setMenuItems((items) => items.map((item) => item.cat === editingCategory ? { ...item, cat: name } : item)); } else { await saveCategory(name); setCategories((items) => items.includes(name) ? items : [...items, name]); } setCategoryName(""); setEditingCategory(null); setSaved("تم حفظ القسم بنجاح"); setTimeout(() => setSaved(""), 2500); };
-  const editCategory = (name: string) => { setEditingCategory(name); setCategoryName(name); };
-  const removeCategory = async (name: string) => { if (categories.length <= 1) return; if (menuItems.some((item) => item.cat === name)) { setSaved("لا يمكن حذف قسم مرتبط بأصناف؛ عدّل الأصناف أولًا"); setTimeout(() => setSaved(""), 3000); return; } await deleteCategory(name); setCategories((items) => items.filter((item) => item !== name)); if (menuFilter === name) setMenuFilter("كل الأقسام"); setSaved("تم حذف القسم"); setTimeout(() => setSaved(""), 2500); };
-  const editMenuItem = (item: Product) => { setEditingId(item.id); setMenuForm({ name: item.name, en: item.en, img: item.img, price: String(item.price), cat: item.cat, station: item.station }); setActiveTab("menu"); };
-  const removeMenuItem = (id: number) => { setMenuItems((items) => items.filter((item) => item.id !== id)); void saveMenuItem({ id, available: false }); };
-  const exportMenu = () => { const blob = new Blob([JSON.stringify(menuItems, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "jackx-menu.json"; link.click(); URL.revokeObjectURL(url); };
-  const filteredMenu = menuItems.filter((item) => item.name.includes(menuSearch) || item.en.toLowerCase().includes(menuSearch.toLowerCase())).filter((item) => menuFilter === "كل الأقسام" || item.cat === menuFilter);
+  const changeMode = async (mode: OperationMode) => {
+    onOperationModeChange(mode);
+    await saveOperationMode(mode);
+  };
+  const togglePayment = async (method: PaymentMethod) => {
+    const next = paymentMethods.includes(method)
+      ? paymentMethods.filter((item) => item !== method)
+      : [...paymentMethods, method];
+    if (!next.length) return;
+    onPaymentMethodsChange(next);
+    await savePaymentMethods(next);
+  };
+  const saveExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!expenseTitle || !expenseAmount) return;
+    await addExpense({ title: expenseTitle, amount: Number(expenseAmount) });
+    setExpenseTitle("");
+    setExpenseAmount("");
+    setSaved("تم تسجيل المصروف");
+    setTimeout(() => setSaved(""), 2500);
+  };
+  const saveNewMenuItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!menuName || !menuPrice) return;
+    await saveMenuItem({
+      id: `custom-${Date.now()}`,
+      name: menuName,
+      en: menuName,
+      price: Number(menuPrice),
+      cat: "إضافات",
+      station: "bar",
+      available: true,
+    });
+    setMenuName("");
+    setMenuPrice("");
+    setSaved("تمت إضافة الصنف للمنيو");
+    setTimeout(() => setSaved(""), 2500);
+  };
+  const submitMenuItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (savingMenu || !menuForm.name || !menuForm.en || !menuForm.price) return;
+    setSavingMenu(true);
+    try {
+      const item = {
+        ...menuForm,
+        id: editingId || Date.now(),
+        price: Number(menuForm.price),
+        available: true,
+      };
+      await saveMenuItem(item);
+      setMenuItems((items) =>
+        uniqueProducts(
+          editingId
+            ? items.map((old) =>
+                old.id === editingId ? (item as Product) : old,
+              )
+            : [...items, item as Product],
+        ),
+      );
+      setMenuForm({
+        name: "",
+        en: "",
+        img: "",
+        price: "",
+        cat: categories[0] || "قهوة",
+        station: "bar",
+      });
+      setEditingId(null);
+      setSaved("تم حفظ الصنف بنجاح");
+    } finally {
+      setSavingMenu(false);
+    }
+  };
+  const submitCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = categoryName.trim();
+    if (!name) return;
+    if (editingCategory && editingCategory !== name) {
+      const affectedItems = menuItems.filter(
+        (item) => item.cat === editingCategory,
+      );
+      await saveCategory(name);
+      await Promise.all(
+        affectedItems.map((item) => saveMenuItem({ ...item, cat: name })),
+      );
+      await deleteCategory(editingCategory);
+      setCategories((items) =>
+        items.map((item) => (item === editingCategory ? name : item)),
+      );
+      setMenuItems((items) =>
+        items.map((item) =>
+          item.cat === editingCategory ? { ...item, cat: name } : item,
+        ),
+      );
+    } else {
+      await saveCategory(name);
+      setCategories((items) =>
+        items.includes(name) ? items : [...items, name],
+      );
+    }
+    setCategoryName("");
+    setEditingCategory(null);
+    setSaved("تم حفظ القسم بنجاح");
+    setTimeout(() => setSaved(""), 2500);
+  };
+  const editCategory = (name: string) => {
+    setEditingCategory(name);
+    setCategoryName(name);
+  };
+  const removeCategory = async (name: string) => {
+    if (categories.length <= 1) return;
+    if (menuItems.some((item) => item.cat === name)) {
+      setSaved("لا يمكن حذف قسم مرتبط بأصناف؛ عدّل الأصناف أولًا");
+      setTimeout(() => setSaved(""), 3000);
+      return;
+    }
+    await deleteCategory(name);
+    setCategories((items) => items.filter((item) => item !== name));
+    if (menuFilter === name) setMenuFilter("كل الأقسام");
+    setSaved("تم حذف القسم");
+    setTimeout(() => setSaved(""), 2500);
+  };
+  const editMenuItem = (item: Product) => {
+    setEditingId(item.id);
+    setMenuForm({
+      name: item.name,
+      en: item.en,
+      img: item.img,
+      price: String(item.price),
+      cat: item.cat,
+      station: item.station,
+    });
+    setActiveTab("menu");
+  };
+  const removeMenuItem = (id: number) => {
+    setMenuItems((items) => items.filter((item) => item.id !== id));
+    void saveMenuItem({ id, available: false });
+  };
+  const exportMenu = () => {
+    const blob = new Blob([JSON.stringify(menuItems, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "jackx-menu.json";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+  const filteredMenu = menuItems
+    .filter(
+      (item) =>
+        item.name.includes(menuSearch) ||
+        item.en.toLowerCase().includes(menuSearch.toLowerCase()),
+    )
+    .filter((item) => menuFilter === "كل الأقسام" || item.cat === menuFilter);
   return (
     <main className={`admin tab-${activeTab}`} dir="rtl">
       <aside>
         <Logo />
         <h3>لوحة JACKX</h3>
-        <button className={activeTab === "overview" ? "active" : ""} onClick={() => setActiveTab("overview")}>
+        <button
+          className={activeTab === "overview" ? "active" : ""}
+          onClick={() => setActiveTab("overview")}
+        >
           <LayoutDashboard /> نظرة عامة
         </button>
-        <button className={activeTab === "menu" ? "active" : ""} onClick={() => setActiveTab("menu")}>
+        <button
+          className={activeTab === "menu" ? "active" : ""}
+          onClick={() => setActiveTab("menu")}
+        >
           <MenuIcon /> إدارة المنيو
         </button>
-        <button className={activeTab === "orders" ? "active" : ""} onClick={() => setActiveTab("orders")}>
+        <button
+          className={activeTab === "orders" ? "active" : ""}
+          onClick={() => setActiveTab("orders")}
+        >
           <ShoppingBag /> الطلبات
         </button>
-        <button className={activeTab === "expenses" ? "active" : ""} onClick={() => setActiveTab("expenses")}>
+        <button
+          className={activeTab === "expenses" ? "active" : ""}
+          onClick={() => setActiveTab("expenses")}
+        >
           <Wallet /> المصروفات
         </button>
-        <button className={activeTab === "settings" ? "active" : ""} onClick={() => setActiveTab("settings")}>
+        <button
+          className={activeTab === "settings" ? "active" : ""}
+          onClick={() => setActiveTab("settings")}
+        >
           <Settings2 /> الإعدادات
         </button>
       </aside>
       <section>
         <header>
           <label>JACKX / ADMIN</label>
-          <h1>{activeTab === "overview" ? "نظرة عامة" : activeTab === "menu" ? "إدارة المنيو" : activeTab === "orders" ? "الطلبات" : activeTab === "expenses" ? "المصروفات" : "الإعدادات"}</h1>
+          <h1>
+            {activeTab === "overview"
+              ? "نظرة عامة"
+              : activeTab === "menu"
+                ? "إدارة المنيو"
+                : activeTab === "orders"
+                  ? "الطلبات"
+                  : activeTab === "expenses"
+                    ? "المصروفات"
+                    : "الإعدادات"}
+          </h1>
         </header>
         <div className="banner">
           <Zap /> خلّي يومك أخف، وإدارتك أذكى.
@@ -866,7 +1138,14 @@ function Admin({ orders, operationMode, onOperationModeChange, paymentMethods, o
             <ChefHat /> أصناف المنيو <b>{P.length}</b>
           </div>
           <div className="operation-card">
-            ⚙️ وضع الطلبات <b>{operationMode === "cashier" ? "كاشير" : operationMode === "direct-screen" ? "شاشات" : "طابعة"}</b>
+            ⚙️ وضع الطلبات{" "}
+            <b>
+              {operationMode === "cashier"
+                ? "كاشير"
+                : operationMode === "direct-screen"
+                  ? "شاشات"
+                  : "طابعة"}
+            </b>
           </div>
         </div>
         <section className="table">
@@ -887,42 +1166,265 @@ function Admin({ orders, operationMode, onOperationModeChange, paymentMethods, o
         <section className="table menu-manager">
           <h2>إدارة المنيو</h2>
           <form className="menu-form" onSubmit={submitMenuItem}>
-            <input required placeholder="اسم المنتج بالعربي" value={menuForm.name} onChange={(e) => setMenuForm({ ...menuForm, name: e.target.value })} />
-            <input required placeholder="Product name in English" value={menuForm.en} onChange={(e) => setMenuForm({ ...menuForm, en: e.target.value })} />
-            <input placeholder="رابط صورة المنتج" value={menuForm.img} onChange={(e) => setMenuForm({ ...menuForm, img: e.target.value })} />
-            <input required type="number" min="0" placeholder="السعر بالجنيه" value={menuForm.price} onChange={(e) => setMenuForm({ ...menuForm, price: e.target.value })} />
-            <select value={menuForm.cat} onChange={(e) => setMenuForm({ ...menuForm, cat: e.target.value })}>{categories.map((category) => <option key={category}>{category}</option>)}</select>
-            <select value={menuForm.station} onChange={(e) => setMenuForm({ ...menuForm, station: e.target.value as "bar" | "kitchen" })}><option value="bar">البار</option><option value="kitchen">المطبخ</option></select>
-            <button className="btn" type="submit" disabled={savingMenu}>{savingMenu ? "جاري الحفظ..." : editingId ? "حفظ التعديل" : "إضافة المنتج"}</button>
+            <input
+              required
+              placeholder="اسم المنتج بالعربي"
+              value={menuForm.name}
+              onChange={(e) =>
+                setMenuForm({ ...menuForm, name: e.target.value })
+              }
+            />
+            <input
+              required
+              placeholder="Product name in English"
+              value={menuForm.en}
+              onChange={(e) => setMenuForm({ ...menuForm, en: e.target.value })}
+            />
+            <input
+              placeholder="رابط صورة المنتج"
+              value={menuForm.img}
+              onChange={(e) =>
+                setMenuForm({ ...menuForm, img: e.target.value })
+              }
+            />
+            <input
+              required
+              type="number"
+              min="0"
+              placeholder="السعر بالجنيه"
+              value={menuForm.price}
+              onChange={(e) =>
+                setMenuForm({ ...menuForm, price: e.target.value })
+              }
+            />
+            <select
+              value={menuForm.cat}
+              onChange={(e) =>
+                setMenuForm({ ...menuForm, cat: e.target.value })
+              }
+            >
+              {categories.map((category) => (
+                <option key={category}>{category}</option>
+              ))}
+            </select>
+            <select
+              value={menuForm.station}
+              onChange={(e) =>
+                setMenuForm({
+                  ...menuForm,
+                  station: e.target.value as "bar" | "kitchen",
+                })
+              }
+            >
+              <option value="bar">البار</option>
+              <option value="kitchen">المطبخ</option>
+            </select>
+            <button className="btn" type="submit" disabled={savingMenu}>
+              {savingMenu
+                ? "جاري الحفظ..."
+                : editingId
+                  ? "حفظ التعديل"
+                  : "إضافة المنتج"}
+            </button>
           </form>
-          <div className="menu-tools"><input placeholder="بحث باسم المنتج" value={menuSearch} onChange={(e) => setMenuSearch(e.target.value)} /><select value={menuFilter} onChange={(e) => setMenuFilter(e.target.value)}><option>كل الأقسام</option>{categories.map((category) => <option key={category}>{category}</option>)}</select><button type="button" onClick={exportMenu}>تصدير</button><label className="import-button">استيراد<input hidden type="file" accept="application/json" onChange={(e) => { const file = e.target.files?.[0]; if (file) file.text().then((text) => { const items = JSON.parse(text) as Product[]; items.forEach((item) => void saveMenuItem(item)); setMenuItems(items); }); }} /></label></div>
-          <div className="menu-table-wrap"><table className="menu-table"><thead><tr><th>#</th><th>كود المنتج</th><th>اسم المنتج عربي</th><th>الاسم الإنجليزي</th><th>الصورة</th><th>السعر</th><th>القسم</th><th>إجراءات</th></tr></thead><tbody>{filteredMenu.map((item, index) => <tr key={item.id}><td>{index + 1}</td><td>JX-{item.id}</td><td>{item.name}</td><td>{item.en}</td><td>{item.img ? <img src={item.img} alt="" /> : "—"}</td><td>{eg(item.price)}</td><td>{item.cat}</td><td><button onClick={() => editMenuItem(item)}>تعديل</button><button className="danger" onClick={() => removeMenuItem(item.id)}>حذف</button></td></tr>)}</tbody></table></div>
+          <div className="menu-tools">
+            <input
+              placeholder="بحث باسم المنتج"
+              value={menuSearch}
+              onChange={(e) => setMenuSearch(e.target.value)}
+            />
+            <select
+              value={menuFilter}
+              onChange={(e) => setMenuFilter(e.target.value)}
+            >
+              <option>كل الأقسام</option>
+              {categories.map((category) => (
+                <option key={category}>{category}</option>
+              ))}
+            </select>
+            <button type="button" onClick={exportMenu}>
+              تصدير
+            </button>
+            <label className="import-button">
+              استيراد
+              <input
+                hidden
+                type="file"
+                accept="application/json"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file)
+                    file.text().then((text) => {
+                      const items = JSON.parse(text) as Product[];
+                      items.forEach((item) => void saveMenuItem(item));
+                      setMenuItems(items);
+                    });
+                }}
+              />
+            </label>
+          </div>
+          <div className="menu-table-wrap">
+            <table className="menu-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>كود المنتج</th>
+                  <th>اسم المنتج عربي</th>
+                  <th>الاسم الإنجليزي</th>
+                  <th>الصورة</th>
+                  <th>السعر</th>
+                  <th>القسم</th>
+                  <th>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredMenu.map((item, index) => (
+                  <tr key={item.id}>
+                    <td>{index + 1}</td>
+                    <td>JX-{item.id}</td>
+                    <td>{item.name}</td>
+                    <td>{item.en}</td>
+                    <td>{item.img ? <img src={item.img} alt="" /> : "—"}</td>
+                    <td>{eg(item.price)}</td>
+                    <td>{item.cat}</td>
+                    <td>
+                      <button onClick={() => editMenuItem(item)}>تعديل</button>
+                      <button
+                        className="danger"
+                        onClick={() => removeMenuItem(item.id)}
+                      >
+                        حذف
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
         <section className="table staff-panel">
           <h2>إدارة أقسام المنيو</h2>
-          <p>أضف الأقسام أو عدّلها أو احذفها. ستظهر الأقسام هنا تلقائيًا في قائمة إضافة المنتج.</p>
+          <p>
+            أضف الأقسام أو عدّلها أو احذفها. ستظهر الأقسام هنا تلقائيًا في قائمة
+            إضافة المنتج.
+          </p>
           <form className="category-form" onSubmit={submitCategory}>
-            <input required placeholder="اسم القسم" value={categoryName} onChange={(e) => setCategoryName(e.target.value)} />
-            <button className="btn" type="submit">{editingCategory ? "حفظ تعديل القسم" : "إضافة قسم"}</button>
-            {editingCategory && <button type="button" onClick={() => { setEditingCategory(null); setCategoryName(""); }}>إلغاء</button>}
+            <input
+              required
+              placeholder="اسم القسم"
+              value={categoryName}
+              onChange={(e) => setCategoryName(e.target.value)}
+            />
+            <button className="btn" type="submit">
+              {editingCategory ? "حفظ تعديل القسم" : "إضافة قسم"}
+            </button>
+            {editingCategory && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingCategory(null);
+                  setCategoryName("");
+                }}
+              >
+                إلغاء
+              </button>
+            )}
           </form>
-          <div className="category-list">{categories.map((category) => <div key={category}><span>{category}</span><span><button type="button" onClick={() => editCategory(category)}>تعديل</button><button type="button" className="danger" onClick={() => void removeCategory(category)}>حذف</button></span></div>)}</div>
+          <div className="category-list">
+            {categories.map((category) => (
+              <div key={category}>
+                <span>{category}</span>
+                <span>
+                  <button type="button" onClick={() => editCategory(category)}>
+                    تعديل
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => void removeCategory(category)}
+                  >
+                    حذف
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
           <hr />
           <h2>طرق الدفع المتاحة</h2>
           <p>اختار طرق الدفع التي تظهر للعميل عند تأكيد الطلب.</p>
-          <div className="payment-settings">{(["cash", "card", "wallet"] as PaymentMethod[]).map((method) => <label key={method}><input type="checkbox" checked={paymentMethods.includes(method)} onChange={() => void togglePayment(method)} />{method === "cash" ? "نقدي" : method === "card" ? "فيزا / كارت" : "محفظة إلكترونية"}</label>)}</div>
+          <div className="payment-settings">
+            {(["cash", "card", "wallet"] as PaymentMethod[]).map((method) => (
+              <label key={method}>
+                <input
+                  type="checkbox"
+                  checked={paymentMethods.includes(method)}
+                  onChange={() => void togglePayment(method)}
+                />
+                {method === "cash"
+                  ? "نقدي"
+                  : method === "card"
+                    ? "فيزا / كارت"
+                    : "محفظة إلكترونية"}
+              </label>
+            ))}
+          </div>
           <hr />
           <h2>إدارة المنيو</h2>
-          <form onSubmit={saveNewMenuItem}><input required placeholder="اسم الصنف" value={menuName} onChange={(e) => setMenuName(e.target.value)} /><input required type="number" min="0" placeholder="السعر" value={menuPrice} onChange={(e) => setMenuPrice(e.target.value)} /><button className="btn" type="submit">إضافة صنف</button></form>
+          <form onSubmit={saveNewMenuItem}>
+            <input
+              required
+              placeholder="اسم الصنف"
+              value={menuName}
+              onChange={(e) => setMenuName(e.target.value)}
+            />
+            <input
+              required
+              type="number"
+              min="0"
+              placeholder="السعر"
+              value={menuPrice}
+              onChange={(e) => setMenuPrice(e.target.value)}
+            />
+            <button className="btn" type="submit">
+              إضافة صنف
+            </button>
+          </form>
           <hr />
           <h2>المصروفات</h2>
-          <form onSubmit={saveExpense}><input required placeholder="بيان المصروف" value={expenseTitle} onChange={(e) => setExpenseTitle(e.target.value)} /><input required type="number" min="0" placeholder="القيمة بالجنيه" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} /><button className="btn" type="submit">إضافة مصروف</button></form>
+          <form onSubmit={saveExpense}>
+            <input
+              required
+              placeholder="بيان المصروف"
+              value={expenseTitle}
+              onChange={(e) => setExpenseTitle(e.target.value)}
+            />
+            <input
+              required
+              type="number"
+              min="0"
+              placeholder="القيمة بالجنيه"
+              value={expenseAmount}
+              onChange={(e) => setExpenseAmount(e.target.value)}
+            />
+            <button className="btn" type="submit">
+              إضافة مصروف
+            </button>
+          </form>
           <hr />
           <h2>طريقة استقبال الطلبات</h2>
-          <p>حدد هل الطلب يمر على الكاشير أولًا، أو يذهب مباشرة للشاشات أو الطابعة.</p>
-          <select className="operation-select" value={operationMode} onChange={(e) => void changeMode(e.target.value as OperationMode)}>
+          <p>
+            حدد هل الطلب يمر على الكاشير أولًا، أو يذهب مباشرة للشاشات أو
+            الطابعة.
+          </p>
+          <select
+            className="operation-select"
+            value={operationMode}
+            onChange={(e) => void changeMode(e.target.value as OperationMode)}
+          >
             <option value="cashier">الكاشير أولًا ثم التوجيه</option>
-            <option value="direct-screen">إرسال مباشر لشاشات البار والمطبخ</option>
+            <option value="direct-screen">
+              إرسال مباشر لشاشات البار والمطبخ
+            </option>
             <option value="direct-printer">إرسال مباشر للطابعة</option>
           </select>
           <hr />
@@ -944,7 +1446,13 @@ function Admin({ orders, operationMode, onOperationModeChange, paymentMethods, o
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            <button type="button" className="show-password" onClick={() => setShowPassword(!showPassword)}>{showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}</button>
+            <button
+              type="button"
+              className="show-password"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+            </button>
             <select value={role} onChange={(e) => setRole(e.target.value)}>
               <option value="cashier">كاشير</option>
               <option value="admin">مدير</option>
@@ -964,7 +1472,10 @@ function App() {
     [loggedIn, setLoggedIn] = useState(false),
     [operationMode, setOperationMode] = useState<OperationMode>("cashier");
   const [menuItems, setMenuItems] = useState<Product[]>(P);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(["cash", "card"]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
+    "cash",
+    "card",
+  ]);
   const view =
     new URLSearchParams(location.search).get("view") ||
     (location.pathname.includes("cashier")
@@ -978,8 +1489,16 @@ function App() {
       if (next.length) setOrders(next as Order[]);
     }, console.error);
   }, [view, loggedIn]);
-  useEffect(() => { loadPaymentMethods().then(setPaymentMethods).catch(console.error); }, []);
-  useEffect(() => watchMenu((items) => { if (items.length) setMenuItems(uniqueProducts(items as Product[])); }, console.error), []);
+  useEffect(() => {
+    loadPaymentMethods().then(setPaymentMethods).catch(console.error);
+  }, []);
+  useEffect(
+    () =>
+      watchMenu((items) => {
+        if (items.length) setMenuItems(uniqueProducts(items as Product[]));
+      }, console.error),
+    [],
+  );
   useEffect(() => {
     if (view === "client" || !loggedIn) return;
     loadOperationMode().then(setOperationMode).catch(console.error);
@@ -996,11 +1515,30 @@ function App() {
   if (view !== "client" && !loggedIn)
     return <StaffLogin onLogin={() => setLoggedIn(true)} />;
   if (view === "cashier")
-    return <Cashier orders={orders} setOrders={setOrders} operationMode={operationMode} />;
-  if (view === "admin") return <Admin orders={orders} operationMode={operationMode} onOperationModeChange={setOperationMode} paymentMethods={paymentMethods} onPaymentMethodsChange={setPaymentMethods} />;
+    return (
+      <Cashier
+        orders={orders}
+        setOrders={setOrders}
+        operationMode={operationMode}
+      />
+    );
+  if (view === "admin")
+    return (
+      <Admin
+        orders={orders}
+        operationMode={operationMode}
+        onOperationModeChange={setOperationMode}
+        paymentMethods={paymentMethods}
+        onPaymentMethodsChange={setPaymentMethods}
+      />
+    );
   return (
     <>
-      <Client addOrder={add} paymentMethods={paymentMethods} menuItems={menuItems} />
+      <Client
+        addOrder={add}
+        paymentMethods={paymentMethods}
+        menuItems={menuItems}
+      />
       <FavoriteHearts />
       <CustomerPortal />
     </>
