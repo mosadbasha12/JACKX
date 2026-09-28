@@ -1,1 +1,1 @@
-{"name":"JACKX Coffee & Bites","short_name":"JACKX","start_url":"/","display":"standalone","background_color":"#fbfaf7","theme_color":"#ef673e","lang":"ar","dir":"rtl","icons":[{"src":"/pwa-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
+{"name":"JACKX Coffee & Bites","short_name":"JACKX","start_url":"/","display":"standalone","background_color":"#ffffff","theme_color":"#ffffff","lang":"ar","dir":"rtl","icons":[{"src":"/jackx-logo.png","sizes":"1024x1024","type":"image/png","purpose":"any maskable"}]}
