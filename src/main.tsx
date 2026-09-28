@@ -7,6 +7,7 @@ import {
   ChefHat,
   Clock3,
   Coffee,
+  Download,
   LayoutDashboard,
   MapPin,
   Menu as MenuIcon,
@@ -175,6 +176,48 @@ function Logo() {
         JACKX<small>coffee & bites</small>
       </span>
     </div>
+  );
+}
+type InstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
+function InstallButton() {
+  const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null);
+  const [installed, setInstalled] = useState(false);
+  useEffect(() => {
+    const onPrompt = (event: Event) => {
+      event.preventDefault();
+      setPromptEvent(event as InstallPromptEvent);
+    };
+    const onInstalled = () => {
+      setInstalled(true);
+      setPromptEvent(null);
+    };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    const standalone = window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+    setInstalled(standalone);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+  if (installed) return null;
+  const install = async () => {
+    if (promptEvent) {
+      await promptEvent.prompt();
+      await promptEvent.userChoice;
+      setPromptEvent(null);
+      return;
+    }
+    window.alert("لتثبيت JACKX على الآيفون: اضغط مشاركة ثم إضافة إلى الشاشة الرئيسية. على أندرويد افتح قائمة المتصفح واختر تثبيت التطبيق.");
+  };
+  return (
+    <button className="install-app" type="button" onClick={install}>
+      <Download size={16} /> تثبيت التطبيق
+    </button>
   );
 }
 function CustomerAuth({ onReady }: { onReady: () => void }) {
@@ -458,6 +501,15 @@ function Client({
     window.addEventListener("jackx-customer-changed", sync);
     return () => window.removeEventListener("jackx-customer-changed", sync);
   }, []);
+  useEffect(() => {
+    const targets = document.querySelectorAll<HTMLElement>(".client .reveal-on-scroll");
+    const observer = new IntersectionObserver(
+      (entries) => entries.forEach((entry) => entry.isIntersecting && entry.target.classList.add("is-visible")),
+      { threshold: 0.14 },
+    );
+    targets.forEach((target) => observer.observe(target));
+    return () => observer.disconnect();
+  }, [menuItems]);
   const add = (p: Product) =>
     setCart((c) =>
       c.some((x) => x.id === p.id)
@@ -494,6 +546,7 @@ function Client({
     <main className="client" dir="rtl">
       <nav>
         <Logo />
+        <InstallButton />
         <button
           className="cart"
           onClick={() => setModal({ ...P[0], id: -1, name: "السلة" })}
@@ -503,7 +556,7 @@ function Client({
         </button>
       </nav>
       <section className="hero">
-        <div>
+        <div className="reveal-on-scroll is-visible">
           <label>FRESH COFFEE. GOOD MOOD.</label>
           <h1>
             مزاجك الحلو
@@ -515,7 +568,7 @@ function Client({
             اطلب دلوقتي <ArrowLeft size={18} />
           </a>
         </div>
-        <div className="hero-img">
+        <div className="hero-img reveal-on-scroll is-visible">
           <img src={P[0].img} />
           <span>
             طازج كل يوم
@@ -525,7 +578,7 @@ function Client({
         </div>
       </section>
       <section id="menu" className="menu">
-        <header>
+        <header className="reveal-on-scroll">
           <div>
             <label>OUR MENU / المنيو</label>
             <h2>اختار اللي على مزاجك</h2>
@@ -539,7 +592,7 @@ function Client({
             />
           </div>
         </header>
-        <div className="cats">
+        <div className="cats reveal-on-scroll">
           {cats.map((c) => (
             <button
               className={cat === c ? "active" : ""}
@@ -552,7 +605,7 @@ function Client({
         </div>
         <div className="grid">
           {menuItems === null ? <div className="menu-loading">جاري تحميل المنيو...</div> : list.length ? list.map((p) => (
-            <article key={p.id}>
+            <article className="reveal-on-scroll" key={p.id}>
               <img src={p.img} />
               <button className="plus" onClick={() => add(p)}>
                 <Plus />
@@ -569,7 +622,7 @@ function Client({
           )) : <div className="menu-loading">لا توجد أصناف متاحة حاليًا.</div>}
         </div>
       </section>
-      <section id="story" className="story">
+      <section id="story" className="story reveal-on-scroll">
         <label>WHY JACKX</label>
         <h2>
           مش مجرد قهوة.
