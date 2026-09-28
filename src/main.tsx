@@ -59,6 +59,7 @@ type Product = {
   img: string;
   station: "bar" | "kitchen";
   available?: boolean;
+  description?: string;
 };
 type Line = Product & { qty: number };
 type Order = {
@@ -130,11 +131,11 @@ const P: Product[] = [
   },
 ];
 const cats = ["كل الأصناف", "قهوة", "مشروبات باردة", "فطور", "حلويات"];
-const uniqueProducts = (items: Product[]) =>
+const uniqueProducts = (items: Product[], includeUnavailable = false) =>
   Array.from(
     new Map(
       items
-        .filter((item) => item.available !== false)
+        .filter((item) => includeUnavailable || item.available !== false)
         .map((item) => [String(item.id), item]),
     ).values(),
   );
@@ -614,7 +615,7 @@ function Client({
                 <div className="pad">
                   <label>{modal.en}</label>
                   <h2>{modal.name}</h2>
-                  <p>اختيار JACKX المميز بطعم طازج وتجربة مختلفة.</p>
+                  <p>{modal.description || "اختيار JACKX المميز بطعم طازج وتجربة مختلفة."}</p>
                   <div className="row">
                     <b>{eg(modal.price)}</b>
                     <button className="btn" onClick={() => add(modal)}>
@@ -870,13 +871,14 @@ function Admin({
     price: "",
     cat: cats[1],
     station: "bar" as "bar" | "kitchen",
+    description: "",
   });
   const [categoryName, setCategoryName] = useState(""),
     [editingCategory, setEditingCategory] = useState<string | null>(null);
   useEffect(
     () =>
       watchMenu((items) => {
-        if (items.length) setMenuItems(uniqueProducts(items as Product[]));
+        if (items.length) setMenuItems(uniqueProducts(items as Product[], true));
       }, console.error),
     [],
   );
@@ -983,6 +985,7 @@ function Admin({
         price: "",
         cat: categories[0] || "قهوة",
         station: "bar",
+        description: "",
       });
       setEditingId(null);
       setSaved("تم حفظ الصنف بنجاح");
@@ -1048,12 +1051,18 @@ function Admin({
       price: String(item.price),
       cat: item.cat,
       station: item.station,
+      description: item.description || "",
     });
     setActiveTab("menu");
   };
   const removeMenuItem = (id: number) => {
     setMenuItems((items) => items.filter((item) => item.id !== id));
     void saveMenuItem({ id, available: false });
+  };
+  const toggleMenuAvailability = async (item: Product) => {
+    const next = { ...item, available: item.available === false };
+    await saveMenuItem(next);
+    setMenuItems((items) => items.map((old) => old.id === item.id ? next : old));
   };
   const exportMenu = () => {
     const blob = new Blob([JSON.stringify(menuItems, null, 2)], {
@@ -1185,6 +1194,12 @@ function Admin({
               value={menuForm.en}
               onChange={(e) => setMenuForm({ ...menuForm, en: e.target.value })}
             />
+            <textarea
+              className="menu-description"
+              placeholder="وصف المنتج"
+              value={menuForm.description}
+              onChange={(e) => setMenuForm({ ...menuForm, description: e.target.value })}
+            />
             <input
               placeholder="رابط صورة المنتج"
               value={menuForm.img}
@@ -1276,9 +1291,11 @@ function Admin({
                   <th>كود المنتج</th>
                   <th>اسم المنتج عربي</th>
                   <th>الاسم الإنجليزي</th>
+                  <th>الوصف</th>
                   <th>الصورة</th>
                   <th>السعر</th>
                   <th>القسم</th>
+                  <th>الحالة</th>
                   <th>إجراءات</th>
                 </tr>
               </thead>
@@ -1289,10 +1306,18 @@ function Admin({
                     <td>JX-{item.id}</td>
                     <td>{item.name}</td>
                     <td>{item.en}</td>
+                    <td className="menu-description-cell">{item.description || "—"}</td>
                     <td>{item.img ? <img src={item.img} alt="" /> : "—"}</td>
                     <td>{eg(item.price)}</td>
                     <td>{item.cat}</td>
                     <td>
+                      <button
+                        type="button"
+                        className={item.available === false ? "status-off" : "status-on"}
+                        onClick={() => void toggleMenuAvailability(item)}
+                      >
+                        {item.available === false ? "OFF" : "ON"}
+                      </button>
                       <button onClick={() => editMenuItem(item)}>تعديل</button>
                       <button
                         className="danger"
