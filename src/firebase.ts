@@ -108,6 +108,11 @@ export const addExpense = (expense: { title: string; amount: number; note?: stri
   addDoc(collection(db, "expenses"), { ...expense, createdAt: serverTimestamp() });
 export const saveMenuItem = (item: Record<string, unknown>) =>
   setDoc(doc(db, "menu", String(item.id)), item, { merge: true });
+export const watchMenu = (onChange: (items: any[]) => void, onError: (error: Error) => void) =>
+  onSnapshot(collection(db, "menu"), (snapshot) => onChange(snapshot.docs.map((item) => item.data())), onError);
+export const saveCategory = (name: string) => setDoc(doc(db, "categories", name), { name, updatedAt: serverTimestamp() }, { merge: true });
+export const watchCategories = (onChange: (categories: string[]) => void, onError: (error: Error) => void) =>
+  onSnapshot(collection(db, "categories"), (snapshot) => onChange(snapshot.docs.map((item) => String(item.data().name))), onError);
 export const deleteMenuItem = (id: string | number) =>
   updateDoc(doc(db, "menu", String(id)), { available: false, updatedAt: serverTimestamp() });
 export const createStaffAccount = async (email: string, password: string) => {

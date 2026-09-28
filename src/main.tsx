@@ -36,12 +36,15 @@ import {
   loginStaffByUsername,
   registerCustomer,
   saveMenuItem,
+  saveCategory,
   saveOperationMode,
   savePaymentMethods,
   setStaffRole,
   updateOrder,
   watchCustomerOrders,
   watchOrders,
+  watchMenu,
+  watchCategories,
   type OperationMode,
   type PaymentMethod,
 } from "./firebase";
@@ -777,6 +780,10 @@ function Cashier({
 }
 function Admin({ orders, operationMode, onOperationModeChange, paymentMethods, onPaymentMethodsChange }: { orders: Order[]; operationMode: OperationMode; onOperationModeChange: (mode: OperationMode) => void; paymentMethods: PaymentMethod[]; onPaymentMethodsChange: (methods: PaymentMethod[]) => void }) {
   const [activeTab, setActiveTab] = useState<"overview" | "menu" | "orders" | "expenses" | "settings">("overview");
+  const [menuItems, setMenuItems] = useState<Product[]>(P), [menuSearch, setMenuSearch] = useState(""), [menuFilter, setMenuFilter] = useState("كل الأقسام"), [categories, setCategories] = useState<string[]>(cats.slice(1)), [editingId, setEditingId] = useState<number | null>(null);
+  const [menuForm, setMenuForm] = useState({ name: "", en: "", img: "", price: "", cat: cats[1], station: "bar" as "bar" | "kitchen" });
+  useEffect(() => watchMenu((items) => { if (items.length) setMenuItems(items as Product[]); }, console.error), []);
+  useEffect(() => watchCategories((items) => { if (items.length) setCategories(items); }, console.error), []);
   const [username, setUsername] = useState(""),
     [password, setPassword] = useState(""),
     [showPassword, setShowPassword] = useState(false),
@@ -808,6 +815,11 @@ function Admin({ orders, operationMode, onOperationModeChange, paymentMethods, o
   const togglePayment = async (method: PaymentMethod) => { const next = paymentMethods.includes(method) ? paymentMethods.filter((item) => item !== method) : [...paymentMethods, method]; if (!next.length) return; onPaymentMethodsChange(next); await savePaymentMethods(next); };
   const saveExpense = async (e: React.FormEvent) => { e.preventDefault(); if (!expenseTitle || !expenseAmount) return; await addExpense({ title: expenseTitle, amount: Number(expenseAmount) }); setExpenseTitle(""); setExpenseAmount(""); setSaved("تم تسجيل المصروف"); setTimeout(() => setSaved(""), 2500); };
   const saveNewMenuItem = async (e: React.FormEvent) => { e.preventDefault(); if (!menuName || !menuPrice) return; await saveMenuItem({ id: `custom-${Date.now()}`, name: menuName, en: menuName, price: Number(menuPrice), cat: "إضافات", station: "bar", available: true }); setMenuName(""); setMenuPrice(""); setSaved("تمت إضافة الصنف للمنيو"); setTimeout(() => setSaved(""), 2500); };
+  const submitMenuItem = async (e: React.FormEvent) => { e.preventDefault(); if (!menuForm.name || !menuForm.en || !menuForm.price) return; const item = { ...menuForm, id: editingId || Date.now(), price: Number(menuForm.price), available: true }; await saveMenuItem(item); setMenuItems((items) => editingId ? items.map((old) => old.id === editingId ? item as Product : old) : [...items, item as Product]); setMenuForm({ name: "", en: "", img: "", price: "", cat: categories[0] || "قهوة", station: "bar" }); setEditingId(null); setSaved("تم حفظ الصنف بنجاح"); };
+  const editMenuItem = (item: Product) => { setEditingId(item.id); setMenuForm({ name: item.name, en: item.en, img: item.img, price: String(item.price), cat: item.cat, station: item.station }); setActiveTab("menu"); };
+  const removeMenuItem = (id: number) => { setMenuItems((items) => items.filter((item) => item.id !== id)); void saveMenuItem({ id, available: false }); };
+  const exportMenu = () => { const blob = new Blob([JSON.stringify(menuItems, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "jackx-menu.json"; link.click(); URL.revokeObjectURL(url); };
+  const filteredMenu = menuItems.filter((item) => item.name.includes(menuSearch) || item.en.toLowerCase().includes(menuSearch.toLowerCase())).filter((item) => menuFilter === "كل الأقسام" || item.cat === menuFilter);
   return (
     <main className={`admin tab-${activeTab}`} dir="rtl">
       <aside>
@@ -865,6 +877,20 @@ function Admin({ orders, operationMode, onOperationModeChange, paymentMethods, o
               </span>
             </p>
           ))}
+        </section>
+        <section className="table menu-manager">
+          <h2>إدارة المنيو</h2>
+          <form className="menu-form" onSubmit={submitMenuItem}>
+            <input required placeholder="اسم المنتج بالعربي" value={menuForm.name} onChange={(e) => setMenuForm({ ...menuForm, name: e.target.value })} />
+            <input required placeholder="Product name in English" value={menuForm.en} onChange={(e) => setMenuForm({ ...menuForm, en: e.target.value })} />
+            <input placeholder="رابط صورة المنتج" value={menuForm.img} onChange={(e) => setMenuForm({ ...menuForm, img: e.target.value })} />
+            <input required type="number" min="0" placeholder="السعر بالجنيه" value={menuForm.price} onChange={(e) => setMenuForm({ ...menuForm, price: e.target.value })} />
+            <select value={menuForm.cat} onChange={(e) => setMenuForm({ ...menuForm, cat: e.target.value })}>{categories.map((category) => <option key={category}>{category}</option>)}</select>
+            <select value={menuForm.station} onChange={(e) => setMenuForm({ ...menuForm, station: e.target.value as "bar" | "kitchen" })}><option value="bar">البار</option><option value="kitchen">المطبخ</option></select>
+            <button className="btn" type="submit">{editingId ? "حفظ التعديل" : "إضافة المنتج"}</button>
+          </form>
+          <div className="menu-tools"><input placeholder="بحث باسم المنتج" value={menuSearch} onChange={(e) => setMenuSearch(e.target.value)} /><select value={menuFilter} onChange={(e) => setMenuFilter(e.target.value)}><option>كل الأقسام</option>{categories.map((category) => <option key={category}>{category}</option>)}</select><button type="button" onClick={exportMenu}>تصدير</button><label className="import-button">استيراد<input hidden type="file" accept="application/json" onChange={(e) => { const file = e.target.files?.[0]; if (file) file.text().then((text) => { const items = JSON.parse(text) as Product[]; items.forEach((item) => void saveMenuItem(item)); setMenuItems(items); }); }} /></label></div>
+          <div className="menu-table-wrap"><table className="menu-table"><thead><tr><th>#</th><th>كود المنتج</th><th>اسم المنتج عربي</th><th>الاسم الإنجليزي</th><th>الصورة</th><th>السعر</th><th>القسم</th><th>إجراءات</th></tr></thead><tbody>{filteredMenu.map((item, index) => <tr key={item.id}><td>{index + 1}</td><td>JX-{item.id}</td><td>{item.name}</td><td>{item.en}</td><td>{item.img ? <img src={item.img} alt="" /> : "—"}</td><td>{eg(item.price)}</td><td>{item.cat}</td><td><button onClick={() => editMenuItem(item)}>تعديل</button><button className="danger" onClick={() => removeMenuItem(item.id)}>حذف</button></td></tr>)}</tbody></table></div>
         </section>
         <section className="table staff-panel">
           <h2>طرق الدفع المتاحة</h2>
