@@ -28,13 +28,16 @@ import {
   auth,
   createOrder,
   createStaffAccountByUsername,
+  loadOperationMode,
   loginCustomer,
   loginStaffByUsername,
   registerCustomer,
+  saveOperationMode,
   setStaffRole,
   updateOrder,
   watchCustomerOrders,
   watchOrders,
+  type OperationMode,
 } from "./firebase";
 
 type Product = {
@@ -672,9 +675,11 @@ function Client({ addOrder }: { addOrder: (o: Order) => void }) {
 function Cashier({
   orders,
   setOrders,
+  operationMode,
 }: {
   orders: Order[];
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
+  operationMode: OperationMode;
 }) {
   const next = (o: Order) => {
     const status =
@@ -696,7 +701,8 @@ function Cashier({
       </header>
       <section className="dashbody">
         <label>JACKX / CASHIER</label>
-        <h1>الطلبات الحالية</h1>
+          <h1>الطلبات الحالية</h1>
+          <p className="mode-pill">وضع التشغيل: {operationMode === "cashier" ? "الكاشير أولًا" : operationMode === "direct-screen" ? "شاشات مباشرة" : "طباعة مباشرة"}</p>
         <div className="stats">
           <div>
             <Bell /> طلبات جديدة{" "}
@@ -753,7 +759,7 @@ function Cashier({
     </main>
   );
 }
-function Admin({ orders }: { orders: Order[] }) {
+function Admin({ orders, operationMode, onOperationModeChange }: { orders: Order[]; operationMode: OperationMode; onOperationModeChange: (mode: OperationMode) => void }) {
   const [username, setUsername] = useState(""),
     [password, setPassword] = useState(""),
     [showPassword, setShowPassword] = useState(false),
@@ -777,6 +783,7 @@ function Admin({ orders }: { orders: Order[] }) {
     }
     setTimeout(() => setSaved(""), 3500);
   };
+  const changeMode = async (mode: OperationMode) => { onOperationModeChange(mode); await saveOperationMode(mode); };
   return (
     <main className="admin" dir="rtl">
       <aside>
@@ -830,6 +837,14 @@ function Admin({ orders }: { orders: Order[] }) {
           ))}
         </section>
         <section className="table staff-panel">
+          <h2>طريقة استقبال الطلبات</h2>
+          <p>حدد هل الطلب يمر على الكاشير أولًا، أو يذهب مباشرة للشاشات أو الطابعة.</p>
+          <select className="operation-select" value={operationMode} onChange={(e) => void changeMode(e.target.value as OperationMode)}>
+            <option value="cashier">الكاشير أولًا ثم التوجيه</option>
+            <option value="direct-screen">إرسال مباشر لشاشات البار والمطبخ</option>
+            <option value="direct-printer">إرسال مباشر للطابعة</option>
+          </select>
+          <hr />
           <h2>إنشاء مستخدم وصلاحياته</h2>
           <p>أنشئ حساب الموظف من هنا مباشرة، ثم حدد هل هو كاشير أو مدير.</p>
           <form onSubmit={save}>
@@ -865,7 +880,8 @@ function Admin({ orders }: { orders: Order[] }) {
 }
 function App() {
   const [orders, setOrders] = useState<Order[]>(seed),
-    [loggedIn, setLoggedIn] = useState(false);
+    [loggedIn, setLoggedIn] = useState(false),
+    [operationMode, setOperationMode] = useState<OperationMode>("cashier");
   const view =
     new URLSearchParams(location.search).get("view") ||
     (location.pathname.includes("cashier")
@@ -879,6 +895,10 @@ function App() {
       if (next.length) setOrders(next as Order[]);
     }, console.error);
   }, [view, loggedIn]);
+  useEffect(() => {
+    if (view === "client" || !loggedIn) return;
+    loadOperationMode().then(setOperationMode).catch(console.error);
+  }, [view, loggedIn]);
   const add = async (o: Order) => {
     const saved = { ...o, userId: auth.currentUser?.uid || "" };
     setOrders((x) => [o, ...x]);
@@ -891,8 +911,8 @@ function App() {
   if (view !== "client" && !loggedIn)
     return <StaffLogin onLogin={() => setLoggedIn(true)} />;
   if (view === "cashier")
-    return <Cashier orders={orders} setOrders={setOrders} />;
-  if (view === "admin") return <Admin orders={orders} />;
+    return <Cashier orders={orders} setOrders={setOrders} operationMode={operationMode} />;
+  if (view === "admin") return <Admin orders={orders} operationMode={operationMode} onOperationModeChange={setOperationMode} />;
   return (
     <>
       <Client addOrder={add} />

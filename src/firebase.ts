@@ -3,6 +3,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getFirestore,
   limit,
   onSnapshot,
@@ -89,6 +90,13 @@ export const watchCustomerOrders = (
   );
 export const updateOrder = (docId: string, status: string) =>
   updateDoc(doc(db, "orders", docId), { status, updatedAt: serverTimestamp() });
+export type OperationMode = "cashier" | "direct-screen" | "direct-printer";
+export const loadOperationMode = async (): Promise<OperationMode> => {
+  const snapshot = await getDoc(doc(db, "settings", "operations"));
+  return (snapshot.data()?.mode as OperationMode) || "cashier";
+};
+export const saveOperationMode = (mode: OperationMode) =>
+  setDoc(doc(db, "settings", "operations"), { mode, updatedAt: serverTimestamp() }, { merge: true });
 export const createStaffAccount = async (email: string, password: string) => {
   const secondary =
     getApps().find((x) => x.name === "staffCreator") ||
