@@ -74,6 +74,24 @@ export const watchOrders = (
     (s) => onChange(s.docs.map((d) => ({ docId: d.id, ...d.data() }))),
     onError,
   );
+export const watchAllOrders = (
+  onChange: (orders: any[]) => void,
+  onError: (e: Error) => void,
+) =>
+  onSnapshot(
+    query(collection(db, "orders"), orderBy("createdAt", "desc")),
+    (s) => onChange(s.docs.map((d) => ({ docId: d.id, ...d.data() }))),
+    onError,
+  );
+export const watchCustomers = (
+  onChange: (customers: any[]) => void,
+  onError: (e: Error) => void,
+) =>
+  onSnapshot(
+    collection(db, "customers"),
+    (s) => onChange(s.docs.map((d) => ({ uid: d.id, ...d.data() }))),
+    onError,
+  );
 export const watchCustomerOrders = (
   uid: string,
   onChange: (orders: any[]) => void,

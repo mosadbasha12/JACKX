@@ -43,6 +43,8 @@ import {
   setStaffRole,
   updateOrder,
   watchCustomerOrders,
+  watchCustomers,
+  watchAllOrders,
   watchOrders,
   watchMenu,
   watchCategories,
@@ -844,7 +846,7 @@ function Admin({
   onPaymentMethodsChange: (methods: PaymentMethod[]) => void;
 }) {
   const [activeTab, setActiveTab] = useState<
-    "overview" | "menu" | "orders" | "expenses" | "settings"
+    "overview" | "menu" | "orders" | "expenses" | "customers" | "settings"
   >("overview");
   const [menuItems, setMenuItems] = useState<Product[]>(P),
     [menuSearch, setMenuSearch] = useState(""),
@@ -863,6 +865,7 @@ function Admin({
   });
   const [categoryName, setCategoryName] = useState(""),
     [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [customerProfiles, setCustomerProfiles] = useState<any[]>([]);
   useEffect(
     () =>
       watchMenu((items) => {
@@ -877,6 +880,7 @@ function Admin({
       }, console.error),
     [],
   );
+  useEffect(() => watchCustomers(setCustomerProfiles, console.error), []);
   const [username, setUsername] = useState(""),
     [password, setPassword] = useState(""),
     [showPassword, setShowPassword] = useState(false),
@@ -1070,6 +1074,19 @@ function Admin({
         item.en.toLowerCase().includes(menuSearch.toLowerCase()),
     )
     .filter((item) => menuFilter === "كل الأقسام" || item.cat === menuFilter);
+  const customerRows = customerProfiles.map((customer) => {
+    const customerOrders = orders.filter((order) => (order as Order & { userId?: string }).userId === customer.uid);
+    const counts = new Map<string, { name: string; qty: number }>();
+    let total = 0;
+    customerOrders.forEach((order) => order.items?.forEach((item) => {
+      total += item.price * item.qty;
+      const current = counts.get(String(item.id)) || { name: item.en || item.name, qty: 0 };
+      current.qty += item.qty;
+      counts.set(String(item.id), current);
+    }));
+    const favorite = [...counts.values()].sort((a, b) => b.qty - a.qty)[0];
+    return { ...customer, total, favorite: favorite?.name || "—" };
+  });
   return (
     <main className={`admin tab-${activeTab}`} dir="rtl">
       <aside>
@@ -1098,6 +1115,13 @@ function Admin({
         </button>
         <button
           type="button"
+          className={activeTab === "customers" ? "active" : ""}
+          onClick={() => setActiveTab("customers")}
+        >
+          <UserRound /> العملاء
+        </button>
+        <button
+          type="button"
           className={activeTab === "expenses" ? "active" : ""}
           onClick={() => setActiveTab("expenses")}
         >
@@ -1119,9 +1143,11 @@ function Admin({
               ? "نظرة عامة"
               : activeTab === "menu"
                 ? "إدارة المنيو"
-                : activeTab === "orders"
-                  ? "الطلبات"
-                  : activeTab === "expenses"
+              : activeTab === "orders"
+                ? "الطلبات"
+                : activeTab === "customers"
+                  ? "العملاء المسجلون"
+                : activeTab === "expenses"
                     ? "المصروفات"
                     : "الإعدادات"}
           </h1>
@@ -1164,6 +1190,47 @@ function Admin({
               </span>
             </p>
           ))}
+        </section>
+        <section className="table customer-panel">
+          <div className="customer-section-head">
+            <div>
+              <h2>العملاء المسجلون</h2>
+              <p>ملخص تعاملات العملاء الدائمين مع JACKX.</p>
+            </div>
+            <strong>{customerRows.length} عميل</strong>
+          </div>
+          <div className="menu-table-wrap">
+            <table className="menu-table customer-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>اسم العميل</th>
+                  <th>رقم الهاتف</th>
+                  <th>إجمالي الإنفاق</th>
+                  <th>الأكثر طلبًا</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customerRows.length ? (
+                  customerRows.map((customer, index) => (
+                    <tr key={customer.uid}>
+                      <td>{index + 1}</td>
+                      <td>{customer.name || "—"}</td>
+                      <td dir="ltr">{customer.phone || "—"}</td>
+                      <td>{eg(customer.total)}</td>
+                      <td>{customer.favorite}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="empty-state">
+                      لا يوجد عملاء مسجلون حتى الآن
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </section>
         <section className="table menu-manager">
           <h2>إدارة المنيو</h2>
@@ -1503,9 +1570,8 @@ function App() {
         : "client");
   useEffect(() => {
     if (view === "client" || !loggedIn) return;
-    return watchOrders((next) => {
-      if (next.length) setOrders(next as Order[]);
-    }, console.error);
+    const watch = view === "admin" ? watchAllOrders : watchOrders;
+    return watch((next) => setOrders(next as Order[]), console.error);
   }, [view, loggedIn]);
   useEffect(() => {
     loadPaymentMethods().then(setPaymentMethods).catch(console.error);
