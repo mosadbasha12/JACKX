@@ -473,6 +473,7 @@ function Client({ addOrder, paymentMethods }: { addOrder: (o: Order) => void; pa
           <a href="#menu">المنيو</a>
           <a href="#story">عن JACKX</a>
           <a href="#visit">زورنا</a>
+          <a href="https://jackx.scorpion.ddnsfree.com" target="_blank" rel="noreferrer">الموقع الرئيسي</a>
         </div>
         <button
           className="cart"
