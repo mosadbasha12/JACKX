@@ -492,18 +492,6 @@ function Client({
     <main className="client" dir="rtl">
       <nav>
         <Logo />
-        <div className="links">
-          <a href="#menu">المنيو</a>
-          <a href="#story">عن JACKX</a>
-          <a href="#visit">زورنا</a>
-          <a
-            href="https://jackx.scorpion.ddnsfree.com"
-            target="_blank"
-            rel="noreferrer"
-          >
-            الموقع الرئيسي
-          </a>
-        </div>
         <button
           className="cart"
           onClick={() => setModal({ ...P[0], id: -1, name: "السلة" })}
