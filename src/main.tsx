@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ArrowLeft,
@@ -26,12 +26,14 @@ import {
 import "./styles.css";
 import {
   auth,
+  addExpense,
   createOrder,
   createStaffAccountByUsername,
   loadOperationMode,
   loginCustomer,
   loginStaffByUsername,
   registerCustomer,
+  saveMenuItem,
   saveOperationMode,
   setStaffRole,
   updateOrder,
@@ -681,6 +683,15 @@ function Cashier({
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   operationMode: OperationMode;
 }) {
+  const lastNewCount = useRef(0);
+  useEffect(() => {
+    const count = orders.filter((o) => o.status === "new").length;
+    if (count > lastNewCount.current) {
+      try { const ctx = new AudioContext(); const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.frequency.value = 880; gain.gain.value = 0.08; osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.18); } catch { /* browser may block audio until interaction */ }
+      if ("Notification" in window && Notification.permission === "granted") new Notification("طلب JACKX جديد", { body: "يوجد طلب جديد يحتاج المراجعة" });
+    }
+    lastNewCount.current = count;
+  }, [orders]);
   const next = (o: Order) => {
     const status =
       o.status === "new"
@@ -764,7 +775,11 @@ function Admin({ orders, operationMode, onOperationModeChange }: { orders: Order
     [password, setPassword] = useState(""),
     [showPassword, setShowPassword] = useState(false),
     [role, setRole] = useState("cashier"),
-    [saved, setSaved] = useState("");
+    [saved, setSaved] = useState(""),
+    [expenseTitle, setExpenseTitle] = useState(""),
+    [expenseAmount, setExpenseAmount] = useState(""),
+    [menuName, setMenuName] = useState(""),
+    [menuPrice, setMenuPrice] = useState("");
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) return;
@@ -784,6 +799,8 @@ function Admin({ orders, operationMode, onOperationModeChange }: { orders: Order
     setTimeout(() => setSaved(""), 3500);
   };
   const changeMode = async (mode: OperationMode) => { onOperationModeChange(mode); await saveOperationMode(mode); };
+  const saveExpense = async (e: React.FormEvent) => { e.preventDefault(); if (!expenseTitle || !expenseAmount) return; await addExpense({ title: expenseTitle, amount: Number(expenseAmount) }); setExpenseTitle(""); setExpenseAmount(""); setSaved("تم تسجيل المصروف"); setTimeout(() => setSaved(""), 2500); };
+  const saveNewMenuItem = async (e: React.FormEvent) => { e.preventDefault(); if (!menuName || !menuPrice) return; await saveMenuItem({ id: `custom-${Date.now()}`, name: menuName, en: menuName, price: Number(menuPrice), cat: "إضافات", station: "bar", available: true }); setMenuName(""); setMenuPrice(""); setSaved("تمت إضافة الصنف للمنيو"); setTimeout(() => setSaved(""), 2500); };
   return (
     <main className="admin" dir="rtl">
       <aside>
@@ -840,6 +857,12 @@ function Admin({ orders, operationMode, onOperationModeChange }: { orders: Order
           ))}
         </section>
         <section className="table staff-panel">
+          <h2>إدارة المنيو</h2>
+          <form onSubmit={saveNewMenuItem}><input required placeholder="اسم الصنف" value={menuName} onChange={(e) => setMenuName(e.target.value)} /><input required type="number" min="0" placeholder="السعر" value={menuPrice} onChange={(e) => setMenuPrice(e.target.value)} /><button className="btn" type="submit">إضافة صنف</button></form>
+          <hr />
+          <h2>المصروفات</h2>
+          <form onSubmit={saveExpense}><input required placeholder="بيان المصروف" value={expenseTitle} onChange={(e) => setExpenseTitle(e.target.value)} /><input required type="number" min="0" placeholder="القيمة بالجنيه" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} /><button className="btn" type="submit">إضافة مصروف</button></form>
+          <hr />
           <h2>طريقة استقبال الطلبات</h2>
           <p>حدد هل الطلب يمر على الكاشير أولًا، أو يذهب مباشرة للشاشات أو الطابعة.</p>
           <select className="operation-select" value={operationMode} onChange={(e) => void changeMode(e.target.value as OperationMode)}>

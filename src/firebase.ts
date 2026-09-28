@@ -97,6 +97,12 @@ export const loadOperationMode = async (): Promise<OperationMode> => {
 };
 export const saveOperationMode = (mode: OperationMode) =>
   setDoc(doc(db, "settings", "operations"), { mode, updatedAt: serverTimestamp() }, { merge: true });
+export const addExpense = (expense: { title: string; amount: number; note?: string }) =>
+  addDoc(collection(db, "expenses"), { ...expense, createdAt: serverTimestamp() });
+export const saveMenuItem = (item: Record<string, unknown>) =>
+  setDoc(doc(db, "menu", String(item.id)), item, { merge: true });
+export const deleteMenuItem = (id: string | number) =>
+  updateDoc(doc(db, "menu", String(id)), { available: false, updatedAt: serverTimestamp() });
 export const createStaffAccount = async (email: string, password: string) => {
   const secondary =
     getApps().find((x) => x.name === "staffCreator") ||
