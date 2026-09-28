@@ -30,6 +30,7 @@ import {
   addExpense,
   createOrder,
   createStaffAccountByUsername,
+  deleteCategory,
   loadOperationMode,
   loadPaymentMethods,
   loginCustomer,
@@ -782,6 +783,7 @@ function Admin({ orders, operationMode, onOperationModeChange, paymentMethods, o
   const [activeTab, setActiveTab] = useState<"overview" | "menu" | "orders" | "expenses" | "settings">("overview");
   const [menuItems, setMenuItems] = useState<Product[]>(P), [menuSearch, setMenuSearch] = useState(""), [menuFilter, setMenuFilter] = useState("كل الأقسام"), [categories, setCategories] = useState<string[]>(cats.slice(1)), [editingId, setEditingId] = useState<number | null>(null);
   const [menuForm, setMenuForm] = useState({ name: "", en: "", img: "", price: "", cat: cats[1], station: "bar" as "bar" | "kitchen" });
+  const [categoryName, setCategoryName] = useState(""), [editingCategory, setEditingCategory] = useState<string | null>(null);
   useEffect(() => watchMenu((items) => { if (items.length) setMenuItems(items as Product[]); }, console.error), []);
   useEffect(() => watchCategories((items) => { if (items.length) setCategories(items); }, console.error), []);
   const [username, setUsername] = useState(""),
@@ -816,6 +818,9 @@ function Admin({ orders, operationMode, onOperationModeChange, paymentMethods, o
   const saveExpense = async (e: React.FormEvent) => { e.preventDefault(); if (!expenseTitle || !expenseAmount) return; await addExpense({ title: expenseTitle, amount: Number(expenseAmount) }); setExpenseTitle(""); setExpenseAmount(""); setSaved("تم تسجيل المصروف"); setTimeout(() => setSaved(""), 2500); };
   const saveNewMenuItem = async (e: React.FormEvent) => { e.preventDefault(); if (!menuName || !menuPrice) return; await saveMenuItem({ id: `custom-${Date.now()}`, name: menuName, en: menuName, price: Number(menuPrice), cat: "إضافات", station: "bar", available: true }); setMenuName(""); setMenuPrice(""); setSaved("تمت إضافة الصنف للمنيو"); setTimeout(() => setSaved(""), 2500); };
   const submitMenuItem = async (e: React.FormEvent) => { e.preventDefault(); if (!menuForm.name || !menuForm.en || !menuForm.price) return; const item = { ...menuForm, id: editingId || Date.now(), price: Number(menuForm.price), available: true }; await saveMenuItem(item); setMenuItems((items) => editingId ? items.map((old) => old.id === editingId ? item as Product : old) : [...items, item as Product]); setMenuForm({ name: "", en: "", img: "", price: "", cat: categories[0] || "قهوة", station: "bar" }); setEditingId(null); setSaved("تم حفظ الصنف بنجاح"); };
+  const submitCategory = async (e: React.FormEvent) => { e.preventDefault(); const name = categoryName.trim(); if (!name) return; if (editingCategory && editingCategory !== name) { await saveCategory(name); await deleteCategory(editingCategory); setCategories((items) => items.map((item) => item === editingCategory ? name : item)); setMenuItems((items) => items.map((item) => item.cat === editingCategory ? { ...item, cat: name } : item)); } else { await saveCategory(name); setCategories((items) => items.includes(name) ? items : [...items, name]); } setCategoryName(""); setEditingCategory(null); setSaved("تم حفظ القسم بنجاح"); setTimeout(() => setSaved(""), 2500); };
+  const editCategory = (name: string) => { setEditingCategory(name); setCategoryName(name); };
+  const removeCategory = async (name: string) => { if (categories.length <= 1) return; await deleteCategory(name); setCategories((items) => items.filter((item) => item !== name)); if (menuFilter === name) setMenuFilter("كل الأقسام"); setSaved("تم حذف القسم"); setTimeout(() => setSaved(""), 2500); };
   const editMenuItem = (item: Product) => { setEditingId(item.id); setMenuForm({ name: item.name, en: item.en, img: item.img, price: String(item.price), cat: item.cat, station: item.station }); setActiveTab("menu"); };
   const removeMenuItem = (id: number) => { setMenuItems((items) => items.filter((item) => item.id !== id)); void saveMenuItem({ id, available: false }); };
   const exportMenu = () => { const blob = new Blob([JSON.stringify(menuItems, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "jackx-menu.json"; link.click(); URL.revokeObjectURL(url); };
@@ -893,6 +898,15 @@ function Admin({ orders, operationMode, onOperationModeChange, paymentMethods, o
           <div className="menu-table-wrap"><table className="menu-table"><thead><tr><th>#</th><th>كود المنتج</th><th>اسم المنتج عربي</th><th>الاسم الإنجليزي</th><th>الصورة</th><th>السعر</th><th>القسم</th><th>إجراءات</th></tr></thead><tbody>{filteredMenu.map((item, index) => <tr key={item.id}><td>{index + 1}</td><td>JX-{item.id}</td><td>{item.name}</td><td>{item.en}</td><td>{item.img ? <img src={item.img} alt="" /> : "—"}</td><td>{eg(item.price)}</td><td>{item.cat}</td><td><button onClick={() => editMenuItem(item)}>تعديل</button><button className="danger" onClick={() => removeMenuItem(item.id)}>حذف</button></td></tr>)}</tbody></table></div>
         </section>
         <section className="table staff-panel">
+          <h2>إدارة أقسام المنيو</h2>
+          <p>أضف الأقسام أو عدّلها أو احذفها. ستظهر الأقسام هنا تلقائيًا في قائمة إضافة المنتج.</p>
+          <form className="category-form" onSubmit={submitCategory}>
+            <input required placeholder="اسم القسم" value={categoryName} onChange={(e) => setCategoryName(e.target.value)} />
+            <button className="btn" type="submit">{editingCategory ? "حفظ تعديل القسم" : "إضافة قسم"}</button>
+            {editingCategory && <button type="button" onClick={() => { setEditingCategory(null); setCategoryName(""); }}>إلغاء</button>}
+          </form>
+          <div className="category-list">{categories.map((category) => <div key={category}><span>{category}</span><span><button type="button" onClick={() => editCategory(category)}>تعديل</button><button type="button" className="danger" onClick={() => void removeCategory(category)}>حذف</button></span></div>)}</div>
+          <hr />
           <h2>طرق الدفع المتاحة</h2>
           <p>اختار طرق الدفع التي تظهر للعميل عند تأكيد الطلب.</p>
           <div className="payment-settings">{(["cash", "card", "wallet"] as PaymentMethod[]).map((method) => <label key={method}><input type="checkbox" checked={paymentMethods.includes(method)} onChange={() => void togglePayment(method)} />{method === "cash" ? "نقدي" : method === "card" ? "فيزا / كارت" : "محفظة إلكترونية"}</label>)}</div>

@@ -2,6 +2,7 @@ import { getApp, getApps, initializeApp } from "firebase/app";
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getFirestore,
@@ -111,6 +112,7 @@ export const saveMenuItem = (item: Record<string, unknown>) =>
 export const watchMenu = (onChange: (items: any[]) => void, onError: (error: Error) => void) =>
   onSnapshot(collection(db, "menu"), (snapshot) => onChange(snapshot.docs.map((item) => item.data())), onError);
 export const saveCategory = (name: string) => setDoc(doc(db, "categories", name), { name, updatedAt: serverTimestamp() }, { merge: true });
+export const deleteCategory = (name: string) => deleteDoc(doc(db, "categories", name));
 export const watchCategories = (onChange: (categories: string[]) => void, onError: (error: Error) => void) =>
   onSnapshot(collection(db, "categories"), (snapshot) => onChange(snapshot.docs.map((item) => String(item.data().name))), onError);
 export const deleteMenuItem = (id: string | number) =>
