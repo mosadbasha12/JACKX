@@ -820,6 +820,9 @@ function Admin({ orders, operationMode, onOperationModeChange }: { orders: Order
           <div>
             <ChefHat /> أصناف المنيو <b>{P.length}</b>
           </div>
+          <div className="operation-card">
+            ⚙️ وضع الطلبات <b>{operationMode === "cashier" ? "كاشير" : operationMode === "direct-screen" ? "شاشات" : "طابعة"}</b>
+          </div>
         </div>
         <section className="table">
           <h2>آخر الطلبات</h2>
