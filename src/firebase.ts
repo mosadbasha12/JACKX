@@ -113,7 +113,7 @@ export const createStaffAccount = async (email: string, password: string) => {
 const staffEmail = (username: string) =>
   `${username.trim().toLowerCase().replace(/\s+/g, "-")}@staff.jackx.app`;
 export const loginStaffByUsername = (username: string, password: string) =>
-  signInWithEmailAndPassword(auth, staffEmail(username), password);
+  signInWithEmailAndPassword(auth, username.includes("@") ? username.trim().toLowerCase() : staffEmail(username), password);
 export const createStaffAccountByUsername = async (
   username: string,
   password: string,
