@@ -1079,30 +1079,35 @@ function Admin({
         <Logo />
         <h3>لوحة JACKX</h3>
         <button
+          type="button"
           className={activeTab === "overview" ? "active" : ""}
           onClick={() => setActiveTab("overview")}
         >
           <LayoutDashboard /> نظرة عامة
         </button>
         <button
+          type="button"
           className={activeTab === "menu" ? "active" : ""}
           onClick={() => setActiveTab("menu")}
         >
           <MenuIcon /> إدارة المنيو
         </button>
         <button
+          type="button"
           className={activeTab === "orders" ? "active" : ""}
           onClick={() => setActiveTab("orders")}
         >
           <ShoppingBag /> الطلبات
         </button>
         <button
+          type="button"
           className={activeTab === "expenses" ? "active" : ""}
           onClick={() => setActiveTab("expenses")}
         >
           <Wallet /> المصروفات
         </button>
         <button
+          type="button"
           className={activeTab === "settings" ? "active" : ""}
           onClick={() => setActiveTab("settings")}
         >

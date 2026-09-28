@@ -546,6 +546,7 @@ article footer {
   align-items: center;
   gap: 10px;
   margin: 5px 0;
+  cursor: pointer;
 }
 .admin aside button.active {
   background: #ef673e;
