@@ -1,4 +1,4 @@
-const CACHE = "jackx-shell-v2";
+const CACHE = "jackx-shell-v3";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -20,6 +20,21 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  const isAppShell =
+    event.request.mode === "navigate" ||
+    ["document", "script", "style"].includes(event.request.destination);
+  if (isAppShell) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request)),
+    );
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then(
       (cached) =>
