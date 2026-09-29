@@ -899,19 +899,30 @@ function Admin({
     e.preventDefault();
     if (!username || !password) return;
     try {
-      await createStaffAccountByUsername(username, password);
+      try {
+        await createStaffAccountByUsername(username, password);
+      } catch (error) {
+        // An existing Firebase account can still have its staff role changed.
+        // Do not abort before writing the role document in that case.
+        if (!(error instanceof Error && error.message.includes("auth/email-already-in-use"))) {
+          throw error;
+        }
+      }
       await setStaffRole(
         `${username.trim().toLowerCase().replace(/\s+/g, "-")}@staff.jackx.app`,
         role,
       );
-      setSaved("تم إنشاء المستخدم وحفظ صلاحيته بنجاح");
+      setSaved("تم حفظ المستخدم وصلاحيته بنجاح");
       setUsername("");
       setPassword("");
     } catch (error) {
+      console.error("staff account save failed", error);
       setSaved(
-        error instanceof Error && error.message.includes("already")
-          ? "اسم المستخدم موجود بالفعل، غيّره أو عدّل صلاحيته"
-          : "تعذر إنشاء المستخدم؛ تأكد من الاسم وكلمة المرور",
+        error instanceof Error && error.message.includes("permission-denied")
+          ? "تم إنشاء الحساب لكن لا تملك صلاحية حفظ الأدوار"
+          : error instanceof Error && error.message.includes("auth/weak-password")
+            ? "كلمة المرور يجب أن تكون 6 أحرف أو أكثر"
+            : "تعذر حفظ المستخدم؛ تأكد من البيانات واتصال الإنترنت",
       );
     }
     setTimeout(() => setSaved(""), 3500);
