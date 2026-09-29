@@ -913,6 +913,11 @@ function Admin({
   );
   useEffect(() => watchCustomers(setCustomerProfiles, console.error), []);
   useEffect(() => watchCategoryRecords(setCategoryRecords, console.error), []);
+  useEffect(() => {
+    if (!menuItems.length || categoryRecords.length) return;
+    const names = Array.from(new Set([...cats.slice(1), ...menuItems.map((item) => item.cat).filter(Boolean)]));
+    setCategoryRecords(names.map((name) => ({ id: name, name, active: true })));
+  }, [menuItems, categoryRecords.length]);
   useEffect(() => watchPaymentRecords(setPaymentRecords, console.error), []);
   useEffect(() => watchOperationRecords(setOperationRecords, console.error), []);
   useEffect(() => watchStaffRecords(setStaffRecords, console.error), []);
@@ -1018,6 +1023,16 @@ function Admin({
     setSaved("تم حفظ المستخدم والصلاحية");
   };
   const toggleStaff = async (item: StaffRecord) => { await saveStaffRecord(item.email, { active: !item.active }); };
+  const removeSettingsCategory = async (item: CategoryRecord) => {
+    if (menuItems.some((product) => product.cat === item.name)) {
+      setSaved("لا يمكن حذف قسم مرتبط بمنتجات؛ انقل المنتجات أولًا");
+      return;
+    }
+    await deleteCategoryRecord(item.id);
+    setCategoryRecords((items) => items.filter((category) => category.id !== item.id));
+    setCategories((items) => items.filter((category) => category !== item.name));
+    setSaved("تم حذف القسم");
+  };
   const exportRows = (name: string, rows: unknown) => {
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" }));
@@ -1098,24 +1113,26 @@ function Admin({
       const affectedItems = menuItems.filter(
         (item) => item.cat === editingCategory,
       );
-      await saveCategory(name);
+      await saveCategoryRecord({ id: name, name, active: categoryRecords.find((item) => item.name === editingCategory)?.active !== false });
       await Promise.all(
         affectedItems.map((item) => saveMenuItem({ ...item, cat: name })),
       );
-      await deleteCategory(editingCategory);
+      await deleteCategoryRecord(editingCategory);
       setCategories((items) =>
         items.map((item) => (item === editingCategory ? name : item)),
       );
+      setCategoryRecords((items) => items.map((item) => item.name === editingCategory ? { ...item, id: name, name } : item));
       setMenuItems((items) =>
         items.map((item) =>
           item.cat === editingCategory ? { ...item, cat: name } : item,
         ),
       );
     } else {
-      await saveCategory(name);
+      await saveCategoryRecord({ id: name, name, active: true });
       setCategories((items) =>
         items.includes(name) ? items : [...items, name],
       );
+      setCategoryRecords((items) => items.some((item) => item.name === name) ? items : [...items, { id: name, name, active: true }]);
     }
     setCategoryName("");
     setEditingCategory(null);
@@ -1133,8 +1150,9 @@ function Admin({
       setTimeout(() => setSaved(""), 3000);
       return;
     }
-    await deleteCategory(name);
+    await deleteCategoryRecord(name);
     setCategories((items) => items.filter((item) => item !== name));
+    setCategoryRecords((items) => items.filter((item) => item.name !== name));
     if (menuFilter === name) setMenuFilter("كل الأقسام");
     setSaved("تم حذف القسم");
     setTimeout(() => setSaved(""), 2500);
@@ -1518,7 +1536,7 @@ function Admin({
           </div>
           <section className="settings-card">
             <div className="settings-card-head"><div><span className="eyebrow">MENU STRUCTURE</span><h2>إدارة أقسام المنيو</h2><p>تحكم في الأقسام التي تظهر عند إضافة المنتجات.</p></div><form onSubmit={submitCategory}><input placeholder="اسم القسم الجديد" value={categoryName} onChange={(e) => setCategoryName(e.target.value)} /><button className="btn" type="submit">{editingCategory ? "حفظ التعديل" : "إضافة قسم جديد"}</button></form></div>
-            <div className="settings-table-wrap"><table className="settings-table"><thead><tr><th>#</th><th>اسم القسم</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>{filteredCategories.map((item, i) => <tr key={item.id}><td>{i + 1}</td><td><b>{item.name}</b></td><td><button type="button" className={item.active ? "status-on" : "status-off"} onClick={() => void saveCategoryRecord({ ...item, active: !item.active })}>{item.active ? "نشط" : "متوقف"}</button></td><td><button type="button" onClick={() => editCategory(item.name)}>تعديل</button><button type="button" className="danger" onClick={() => void deleteCategoryRecord(item.id)}>حذف</button></td></tr>)}</tbody></table></div>
+            <div className="settings-table-wrap"><table className="settings-table"><thead><tr><th>#</th><th>اسم القسم</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>{filteredCategories.map((item, i) => <tr key={item.id}><td>{i + 1}</td><td><b>{item.name}</b></td><td><button type="button" className={item.active ? "status-on" : "status-off"} onClick={() => void saveCategoryRecord({ ...item, active: !item.active })}>{item.active ? "نشط" : "متوقف"}</button></td><td><button type="button" onClick={() => editCategory(item.name)}>تعديل</button><button type="button" className="danger" onClick={() => void removeSettingsCategory(item)}>حذف</button></td></tr>)}</tbody></table></div>
           </section>
           <section className="settings-card">
             <div className="settings-card-head"><div><span className="eyebrow">PAYMENT METHODS</span><h2>طرق الدفع</h2><p>الطرق النشطة فقط تظهر للعميل داخل السلة.</p></div><form onSubmit={savePaymentRecord}><input placeholder="طريقة الدفع" value={paymentDraft.name} onChange={(e) => setPaymentDraft({ ...paymentDraft, name: e.target.value })} /><input placeholder="اسم الشركة" value={paymentDraft.company} onChange={(e) => setPaymentDraft({ ...paymentDraft, company: e.target.value })} /><input placeholder="رقم الحساب" value={paymentDraft.account} onChange={(e) => setPaymentDraft({ ...paymentDraft, account: e.target.value })} /><input placeholder="اسم مالك الحساب" value={paymentDraft.owner} onChange={(e) => setPaymentDraft({ ...paymentDraft, owner: e.target.value })} /><button className="btn" type="submit">{editingPayment ? "حفظ التعديل" : "إضافة طريقة دفع"}</button></form></div>
