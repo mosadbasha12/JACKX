@@ -263,6 +263,14 @@ function CustomerPortal({ menuItems }: { menuItems: Product[] | null }) {
     if (!auth.currentUser) return;
     return watchCustomerOrders(auth.currentUser.uid, setOrders, console.error);
   }, [ready]);
+  useEffect(() => {
+    const openLogin = () => {
+      setReady(!!auth.currentUser);
+      setOpen(true);
+    };
+    window.addEventListener("jackx-open-customer-auth", openLogin);
+    return () => window.removeEventListener("jackx-open-customer-auth", openLogin);
+  }, []);
   const toggle = (id: number) =>
     setFavs((x) => {
       const n = x.includes(id) ? x.filter((i) => i !== id) : [...x, id];
@@ -334,7 +342,7 @@ function CustomerPortal({ menuItems }: { menuItems: Product[] | null }) {
                   </div>
                 ) : (
                   <div className="customer-list">
-                    {(menuItems || []).map((p) => (
+                    {(menuItems || []).filter((p) => favs.includes(p.id)).map((p) => (
                       <button
                         className="favorite-row"
                         key={p.id}
@@ -348,6 +356,9 @@ function CustomerPortal({ menuItems }: { menuItems: Product[] | null }) {
                         <b>{favs.includes(p.id) ? "♥" : "♡"}</b>
                       </button>
                     ))}
+                    {!menuItems?.some((p) => favs.includes(p.id)) && (
+                      <p className="empty">لم تضف أي منتجات للمفضلة حتى الآن.</p>
+                    )}
                   </div>
                 )}
                 <button
@@ -451,7 +462,7 @@ function Client({
     );
     targets.forEach((target) => observer.observe(target));
     return () => observer.disconnect();
-  }, [menuItems]);
+  }, [menuItems, cat, q]);
   const add = (p: Product) =>
     setCart((c) =>
       c.some((x) => x.id === p.id)
@@ -459,13 +470,26 @@ function Client({
         : [...c, { ...p, qty: 1 }],
     );
   const visibleCategories = ["كل الأصناف", ...Array.from(new Set((menuItems || []).map((item) => item.cat).filter(Boolean)))];
+  const normalizeSearch = (value: string) =>
+    value
+      .toLocaleLowerCase("ar-EG")
+      .replace(/[ًٌٍَُِّْـ]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const searchTerms = normalizeSearch(q).split(" ").filter(Boolean);
   const list = (menuItems || []).filter(
-    (p) =>
-      (cat === "كل الأصناف" || p.cat === cat) &&
-      `${p.name}${p.en}`.toLowerCase().includes(q.toLowerCase()),
+    (p) => {
+      if (cat !== "كل الأصناف" && p.cat !== cat) return false;
+      const searchable = normalizeSearch(`${p.name} ${p.en} ${p.description || ""} ${p.cat}`);
+      return searchTerms.every((term) => searchable.includes(term));
+    },
   );
   const total = cart.reduce((s, x) => s + x.price * x.qty, 0);
-  const toggleFavorite = (id: number) =>
+  const toggleFavorite = (id: number) => {
+    if (!customerUid) {
+      window.dispatchEvent(new Event("jackx-open-customer-auth"));
+      return;
+    }
     setFavorites((current) => {
       const next = current.includes(id)
         ? current.filter((itemId) => itemId !== id)
@@ -473,6 +497,7 @@ function Client({
       localStorage.setItem("jackx-favorites", JSON.stringify(next));
       return next;
     });
+  };
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
