@@ -1,4 +1,4 @@
-const CACHE = "jackx-shell-v3";
+const CACHE = "jackx-shell-v4";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
