@@ -458,6 +458,7 @@ function Client({
         ? c.map((x) => (x.id === p.id ? { ...x, qty: x.qty + 1 } : x))
         : [...c, { ...p, qty: 1 }],
     );
+  const visibleCategories = ["كل الأصناف", ...Array.from(new Set((menuItems || []).map((item) => item.cat).filter(Boolean)))];
   const list = (menuItems || []).filter(
     (p) =>
       (cat === "كل الأصناف" || p.cat === cat) &&
@@ -549,7 +550,7 @@ function Client({
           </div>
         </header>
         <div className="cats reveal-on-scroll">
-          {cats.map((c) => (
+          {visibleCategories.map((c) => (
             <button
               className={cat === c ? "active" : ""}
               onClick={() => setCat(c)}
@@ -561,8 +562,11 @@ function Client({
         </div>
         <div className="grid">
           {menuItems === null ? <div className="menu-loading">جاري تحميل المنيو...</div> : list.length ? list.map((p) => (
-              <article className="reveal-on-scroll" key={p.id}>
-                <img src={p.img} alt={p.en} loading="lazy" decoding="async" />
+              <article className={`reveal-on-scroll ${p.available === false ? "sold-out-card" : ""}`} key={p.id}>
+                <div className="product-image-wrap">
+                  <img src={p.img || "/jackx-logo.png"} alt={p.en} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.src = "/jackx-logo.png"; }} />
+                  {p.available === false && <span className="sold-out-stamp">SOLD OUT</span>}
+                </div>
                 <button
                   className="favorite-card"
                   aria-label="إضافة للمفضلة"
@@ -570,15 +574,15 @@ function Client({
                 >
                   {favorites.includes(p.id) ? "♥" : "♡"}
                 </button>
-              <button className="plus" onClick={() => add(p)}>
+              <button className="plus" disabled={p.available === false} onClick={() => add(p)}>
                 <Plus />
               </button>
               <div>
                 <small>{p.name}</small>
                 <h3>{p.en}</h3>
                 <strong>{eg(p.price)}</strong>
-                <button className="order" onClick={() => setModal(p)}>
-                  اطلبه دلوقتي <ArrowLeft size={15} />
+                <button className="order" disabled={p.available === false} onClick={() => setModal(p)}>
+                  {p.available === false ? "SOLD OUT" : <>اطلبه دلوقتي <ArrowLeft size={15} /></>}
                 </button>
               </div>
             </article>
@@ -915,7 +919,7 @@ function Admin({
   useEffect(() => watchCategoryRecords(setCategoryRecords, console.error), []);
   useEffect(() => {
     if (!menuItems.length || categoryRecords.length) return;
-    const names = Array.from(new Set([...cats.slice(1), ...menuItems.map((item) => item.cat).filter(Boolean)]));
+    const names = Array.from(new Set(menuItems.map((item) => item.cat).filter(Boolean)));
     setCategoryRecords(names.map((name) => ({ id: name, name, active: true })));
   }, [menuItems, categoryRecords.length]);
   useEffect(() => watchPaymentRecords(setPaymentRecords, console.error), []);
@@ -1040,6 +1044,15 @@ function Admin({
     setCategoryRecords((items) => items.filter((category) => category.id !== item.id));
     setCategories((items) => items.filter((category) => category !== item.name));
     setSaved("تم حذف القسم");
+  };
+  const toggleSettingsCategory = async (item: CategoryRecord) => {
+    const active = !item.active;
+    const affected = menuItems.filter((product) => product.cat === item.name);
+    await saveCategoryRecord({ ...item, active });
+    await Promise.all(affected.map((product) => saveMenuItem({ ...product, available: active })));
+    setCategoryRecords((items) => items.map((category) => category.id === item.id ? { ...category, active } : category));
+    setMenuItems((items) => items.map((product) => product.cat === item.name ? { ...product, available: active } : product));
+    setSaved(active ? "تم تشغيل القسم ومنتجاته" : "تم إيقاف القسم ومنتجاته وظهر SOLD OUT");
   };
   const exportRows = (name: string, rows: unknown) => {
     const link = document.createElement("a");
@@ -1544,7 +1557,7 @@ function Admin({
           </div>
           <section className="settings-card">
             <div className="settings-card-head"><div><span className="eyebrow">MENU STRUCTURE</span><h2>إدارة أقسام المنيو</h2><p>تحكم في الأقسام التي تظهر عند إضافة المنتجات.</p></div><form onSubmit={submitCategory}><input placeholder="اسم القسم الجديد" value={categoryName} onChange={(e) => setCategoryName(e.target.value)} /><button className="btn" type="submit">{editingCategory ? "حفظ التعديل" : "إضافة قسم جديد"}</button></form></div>
-            <div className="settings-table-wrap"><table className="settings-table"><thead><tr><th>#</th><th>اسم القسم</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>{filteredCategories.map((item, i) => <tr key={item.id}><td>{i + 1}</td><td><b>{item.name}</b></td><td><button type="button" className={item.active ? "status-on" : "status-off"} onClick={() => void saveCategoryRecord({ ...item, active: !item.active })}>{item.active ? "نشط" : "متوقف"}</button></td><td><button type="button" onClick={() => editCategory(item.name)}>تعديل</button><button type="button" className="danger" onClick={() => void removeSettingsCategory(item)}>حذف</button></td></tr>)}</tbody></table></div>
+            <div className="settings-table-wrap"><table className="settings-table"><thead><tr><th>#</th><th>اسم القسم</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>{filteredCategories.map((item, i) => <tr key={item.id}><td>{i + 1}</td><td><b>{item.name}</b></td><td><button type="button" className={item.active ? "status-on" : "status-off"} onClick={() => void toggleSettingsCategory(item)}>{item.active ? "تشغيل" : "إيقاف"}</button></td><td><button type="button" onClick={() => editCategory(item.name)}>تعديل</button><button type="button" className="danger" onClick={() => void removeSettingsCategory(item)}>حذف</button></td></tr>)}</tbody></table></div>
           </section>
           <section className="settings-card">
             <div className="settings-card-head"><div><span className="eyebrow">PAYMENT METHODS</span><h2>طرق الدفع</h2><p>الطرق النشطة فقط تظهر للعميل داخل السلة.</p></div><form onSubmit={savePaymentRecord}><input placeholder="طريقة الدفع" value={paymentDraft.name} onChange={(e) => setPaymentDraft({ ...paymentDraft, name: e.target.value })} /><input placeholder="اسم الشركة" value={paymentDraft.company} onChange={(e) => setPaymentDraft({ ...paymentDraft, company: e.target.value })} /><input placeholder="رقم الحساب" value={paymentDraft.account} onChange={(e) => setPaymentDraft({ ...paymentDraft, account: e.target.value })} /><input placeholder="اسم مالك الحساب" value={paymentDraft.owner} onChange={(e) => setPaymentDraft({ ...paymentDraft, owner: e.target.value })} /><button className="btn" type="submit">{editingPayment ? "حفظ التعديل" : "إضافة طريقة دفع"}</button></form></div>
@@ -1756,7 +1769,7 @@ function App() {
   useEffect(
     () =>
       watchMenu((items) => {
-        setMenuItems(uniqueProducts(items as Product[]));
+        setMenuItems(uniqueProducts(items as Product[], true));
       }, console.error),
     [],
   );
