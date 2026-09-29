@@ -8,7 +8,11 @@ service cloud.firestore {
           request.auth.token.email == 'admin@jackx.app' ||
           request.auth.token.email == 'admin@staff.jackx.app' ||
           (exists(/databases/$(database)/documents/staff/$(request.auth.token.email)) &&
-            get(/databases/$(database)/documents/staff/$(request.auth.token.email)).data.role == 'admin')
+            (
+              get(/databases/$(database)/documents/staff/$(request.auth.token.email)).data.role == 'admin' ||
+              get(/databases/$(database)/documents/staff/$(request.auth.token.email)).data.role == 'manager' ||
+              get(/databases/$(database)/documents/staff/$(request.auth.token.email)).data.role == 'مدير'
+            ))
         );
       }
       function isStaff() { return signedIn() && (isAdmin() || exists(/databases/$(database)/documents/staff/$(request.auth.token.email))); }
