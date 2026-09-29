@@ -164,9 +164,9 @@ export const watchOperationRecords = (onChange: (methods: OperationRecord[]) => 
   }, onError);
 export const saveOperationRecords = (records: OperationRecord[], selected: OperationMode) =>
   setDoc(doc(db, "settings", "operations"), { records, mode: selected, updatedAt: serverTimestamp() }, { merge: true });
-export type StaffRecord = { id: string; email: string; username: string; phone: string; role: string; active: boolean };
+export type StaffRecord = { id: string; email: string; username: string; phone: string; role: string; active: boolean; permissions?: string[] };
 export const watchStaffRecords = (onChange: (staff: StaffRecord[]) => void, onError: (error: Error) => void) =>
-  onSnapshot(collection(db, "staff"), (snapshot) => onChange(snapshot.docs.map((item) => ({ id: item.id, email: String(item.data().email || item.id), username: String(item.data().username || item.id.split("@")[0]), phone: String(item.data().phone || "—"), role: String(item.data().role || "cashier"), active: item.data().active !== false }))), onError);
+  onSnapshot(collection(db, "staff"), (snapshot) => onChange(snapshot.docs.map((item) => ({ id: item.id, email: String(item.data().email || item.id), username: String(item.data().username || item.id.split("@")[0]), phone: String(item.data().phone || "—"), role: String(item.data().role || "cashier"), active: item.data().active !== false, permissions: Array.isArray(item.data().permissions) ? item.data().permissions : [] }))), onError);
 export const saveStaffRecord = (email: string, data: Partial<StaffRecord>) => setDoc(doc(db, "staff", email.toLowerCase()), { email: email.toLowerCase(), ...data, updatedAt: serverTimestamp() }, { merge: true });
 export const deleteStaffRecord = (email: string) => deleteDoc(doc(db, "staff", email.toLowerCase()));
 export const deleteMenuItem = (id: string | number) =>
