@@ -32,6 +32,7 @@ import {
   createOrder,
   createStaffAccountByUsername,
   deleteCategory,
+  deleteMenuItem,
   loadOperationMode,
   loadPaymentMethods,
   loginCustomer,
@@ -1043,9 +1044,11 @@ function Admin({
     });
     setActiveTab("menu");
   };
-  const removeMenuItem = (id: number) => {
+  const removeMenuItem = async (id: number) => {
+    await deleteMenuItem(id);
     setMenuItems((items) => items.filter((item) => item.id !== id));
-    void saveMenuItem({ id, available: false });
+    setSaved("تم حذف المنتج نهائيًا");
+    setTimeout(() => setSaved(""), 2500);
   };
   const toggleMenuAvailability = async (item: Product) => {
     const next = { ...item, available: item.available === false };
@@ -1362,17 +1365,18 @@ function Admin({
                     <td>{eg(item.price)}</td>
                     <td>{item.cat}</td>
                     <td>
-        <button
+                      <button
                         type="button"
                         className={item.available === false ? "status-off" : "status-on"}
                         onClick={() => void toggleMenuAvailability(item)}
                       >
                         {item.available === false ? "OFF" : "ON"}
                       </button>
-                      <button onClick={() => editMenuItem(item)}>تعديل</button>
+                      <button type="button" onClick={() => editMenuItem(item)}>تعديل</button>
         <button
+                        type="button"
                         className="danger"
-                        onClick={() => removeMenuItem(item.id)}
+                        onClick={() => void removeMenuItem(item.id)}
                       >
                         حذف
                       </button>

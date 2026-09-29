@@ -134,7 +134,7 @@ export const deleteCategory = (name: string) => deleteDoc(doc(db, "categories", 
 export const watchCategories = (onChange: (categories: string[]) => void, onError: (error: Error) => void) =>
   onSnapshot(collection(db, "categories"), (snapshot) => onChange(snapshot.docs.map((item) => String(item.data().name))), onError);
 export const deleteMenuItem = (id: string | number) =>
-  updateDoc(doc(db, "menu", String(id)), { available: false, updatedAt: serverTimestamp() });
+  deleteDoc(doc(db, "menu", String(id)));
 export const createStaffAccount = async (email: string, password: string) => {
   const secondary =
     getApps().find((x) => x.name === "staffCreator") ||
