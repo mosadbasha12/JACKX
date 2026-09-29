@@ -955,7 +955,9 @@ function Admin({
         ...menuForm,
         id: editingId || Date.now(),
         price: Number(menuForm.price),
-        available: true,
+        available: editingId
+          ? menuItems.find((old) => old.id === editingId)?.available !== false
+          : true,
       };
       await saveMenuItem(item);
       setMenuItems((items) =>
@@ -978,6 +980,9 @@ function Admin({
       });
       setEditingId(null);
       setSaved("تم حفظ الصنف بنجاح");
+    } catch (error) {
+      console.error(error);
+      setSaved("تعذر الحفظ. تأكد أن حسابك بصلاحية مدير وأن البيانات صحيحة");
     } finally {
       setSavingMenu(false);
     }
@@ -1045,15 +1050,26 @@ function Admin({
     setActiveTab("menu");
   };
   const removeMenuItem = async (id: number) => {
-    await deleteMenuItem(id);
-    setMenuItems((items) => items.filter((item) => item.id !== id));
-    setSaved("تم حذف المنتج نهائيًا");
+    if (!window.confirm("حذف المنتج نهائيًا؟ استخدم إيقاف إذا كنت تريد إخفاءه مؤقتًا.")) return;
+    try {
+      await deleteMenuItem(id);
+      setMenuItems((items) => items.filter((item) => item.id !== id));
+      setSaved("تم حذف المنتج نهائيًا");
+    } catch {
+      setSaved("تعذر حذف المنتج؛ حاول مرة أخرى");
+    }
     setTimeout(() => setSaved(""), 2500);
   };
   const toggleMenuAvailability = async (item: Product) => {
     const next = { ...item, available: item.available === false };
-    await saveMenuItem(next);
-    setMenuItems((items) => items.map((old) => old.id === item.id ? next : old));
+    try {
+      await saveMenuItem(next);
+      setMenuItems((items) => items.map((old) => old.id === item.id ? next : old));
+      setSaved(next.available ? "تم تشغيل المنتج" : "تم إيقاف المنتج");
+    } catch {
+      setSaved("تعذر تغيير حالة المنتج؛ حاول مرة أخرى");
+    }
+    setTimeout(() => setSaved(""), 2500);
   };
   const exportMenu = () => {
     const blob = new Blob([JSON.stringify(menuItems, null, 2)], {
@@ -1370,7 +1386,7 @@ function Admin({
                         className={item.available === false ? "status-off" : "status-on"}
                         onClick={() => void toggleMenuAvailability(item)}
                       >
-                        {item.available === false ? "OFF" : "ON"}
+                        {item.available === false ? "تشغيل" : "إيقاف"}
                       </button>
                       <button type="button" onClick={() => editMenuItem(item)}>تعديل</button>
         <button
