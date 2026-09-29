@@ -9,6 +9,7 @@ import {
   Coffee,
   Download,
   LayoutDashboard,
+  LogOut,
   MapPin,
   Menu as MenuIcon,
   Minus,
@@ -97,6 +98,10 @@ function Logo() {
       </span>
     </div>
   );
+}
+async function logoutStaff() {
+  await auth.signOut();
+  window.location.reload();
 }
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -761,6 +766,9 @@ function Cashier({
         <span>
           الكاشير: <b>محمد أحمد</b>
         </span>
+        <button className="staff-logout" type="button" onClick={() => void logoutStaff()}>
+          <LogOut size={16} /> تسجيل الخروج
+        </button>
       </header>
       <section className="dashbody">
         <label>JACKX / CASHIER</label>
@@ -1148,6 +1156,9 @@ function Admin({
           onClick={() => setActiveTab("settings")}
         >
           <Settings2 /> الإعدادات
+        </button>
+        <button className="staff-logout admin-logout" type="button" onClick={() => void logoutStaff()}>
+          <LogOut size={17} /> تسجيل الخروج
         </button>
       </aside>
       <section>
