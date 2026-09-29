@@ -51,6 +51,20 @@ import {
   watchOrders,
   watchMenu,
   watchCategories,
+  watchCategoryRecords,
+  saveCategoryRecord,
+  deleteCategoryRecord,
+  watchPaymentRecords,
+  savePaymentRecords,
+  watchOperationRecords,
+  saveOperationRecords,
+  watchStaffRecords,
+  saveStaffRecord,
+  deleteStaffRecord,
+  type CategoryRecord,
+  type PaymentRecord,
+  type OperationRecord,
+  type StaffRecord,
   type OperationMode,
   type PaymentMethod,
 } from "./firebase";
@@ -871,6 +885,18 @@ function Admin({
   const [categoryName, setCategoryName] = useState(""),
     [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [customerProfiles, setCustomerProfiles] = useState<any[]>([]);
+  const [categoryRecords, setCategoryRecords] = useState<CategoryRecord[]>([]);
+  const [paymentRecords, setPaymentRecords] = useState<PaymentRecord[]>([]);
+  const [operationRecords, setOperationRecords] = useState<OperationRecord[]>([]);
+  const [staffRecords, setStaffRecords] = useState<StaffRecord[]>([]);
+  const [settingsSearch, setSettingsSearch] = useState("");
+  const [settingsFilter, setSettingsFilter] = useState("all");
+  const [paymentDraft, setPaymentDraft] = useState({ name: "", company: "", account: "", owner: "" });
+  const [editingPayment, setEditingPayment] = useState<string | null>(null);
+  const [operationDraft, setOperationDraft] = useState({ id: "cashier" as OperationMode, name: "" });
+  const [editingOperation, setEditingOperation] = useState<OperationMode | null>(null);
+  const [staffPhone, setStaffPhone] = useState("");
+  const [editingStaff, setEditingStaff] = useState<string | null>(null);
   useEffect(
     () =>
       watchMenu((items) => {
@@ -886,6 +912,10 @@ function Admin({
     [],
   );
   useEffect(() => watchCustomers(setCustomerProfiles, console.error), []);
+  useEffect(() => watchCategoryRecords(setCategoryRecords, console.error), []);
+  useEffect(() => watchPaymentRecords(setPaymentRecords, console.error), []);
+  useEffect(() => watchOperationRecords(setOperationRecords, console.error), []);
+  useEffect(() => watchStaffRecords(setStaffRecords, console.error), []);
   const [username, setUsername] = useState(""),
     [password, setPassword] = useState(""),
     [showPassword, setShowPassword] = useState(false),
@@ -938,6 +968,60 @@ function Admin({
     if (!next.length) return;
     onPaymentMethodsChange(next);
     await savePaymentMethods(next);
+  };
+  const filteredCategories = categoryRecords.filter((item) => item.name.includes(settingsSearch) && (settingsFilter === "all" || (settingsFilter === "active" ? item.active : !item.active)));
+  const filteredPayments = paymentRecords.filter((item) => item.name.includes(settingsSearch) && (settingsFilter === "all" || (settingsFilter === "active" ? item.active : !item.active)));
+  const filteredOperations = operationRecords.filter((item) => item.name.includes(settingsSearch) && (settingsFilter === "all" || (settingsFilter === "active" ? item.active : !item.active)));
+  const filteredStaff = staffRecords.filter((item) => `${item.username} ${item.email} ${item.phone}`.toLowerCase().includes(settingsSearch.toLowerCase()) && (settingsFilter === "all" || (settingsFilter === "active" ? item.active : !item.active)));
+  const savePaymentRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentDraft.name.trim()) return;
+    const id = editingPayment || `payment-${Date.now()}`;
+    const next = { id, ...paymentDraft, active: editingPayment ? paymentRecords.find((x) => x.id === id)?.active !== false : true };
+    await savePaymentRecords(paymentRecords.some((x) => x.id === id) ? paymentRecords.map((x) => x.id === id ? next : x) : [...paymentRecords, next]);
+    setPaymentDraft({ name: "", company: "", account: "", owner: "" });
+    setEditingPayment(null);
+    setSaved("تم حفظ طريقة الدفع");
+  };
+  const saveOperationRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!operationDraft.name.trim()) return;
+    const id = editingOperation || operationDraft.id;
+    const next = { id, name: operationDraft.name, active: editingOperation ? operationRecords.find((x) => x.id === id)?.active !== false : true };
+    const records = operationRecords.some((x) => x.id === id) ? operationRecords.map((x) => x.id === id ? next : x) : [...operationRecords, next];
+    await saveOperationRecords(records, operationMode);
+    setOperationDraft({ id: "cashier", name: "" });
+    setEditingOperation(null);
+    setSaved("تم حفظ طريقة استقبال الطلب");
+  };
+  const toggleOperationRecord = async (item: OperationRecord) => {
+    const records = operationRecords.map((x) => x.id === item.id ? { ...x, active: !x.active } : x);
+    await saveOperationRecords(records, operationMode);
+  };
+  const togglePaymentRecord = async (item: PaymentRecord) => {
+    const records = paymentRecords.map((x) => x.id === item.id ? { ...x, active: !x.active } : x);
+    await savePaymentRecords(records);
+    onPaymentMethodsChange(records.filter((x) => x.active).map((x) => x.id as PaymentMethod));
+  };
+  const saveStaffFromSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || (!editingStaff && !password)) return;
+    const email = `${username.trim().toLowerCase().replace(/\s+/g, "-")}@staff.jackx.app`;
+    if (!editingStaff) {
+      try { await createStaffAccountByUsername(username, password); } catch (error) {
+        if (!(error instanceof Error && error.message.includes("auth/email-already-in-use"))) throw error;
+      }
+    }
+    await saveStaffRecord(email, { username: username.trim(), phone: staffPhone.trim() || "—", role, active: true });
+    await setStaffRole(email, role);
+    setUsername(""); setPassword(""); setStaffPhone(""); setEditingStaff(null);
+    setSaved("تم حفظ المستخدم والصلاحية");
+  };
+  const toggleStaff = async (item: StaffRecord) => { await saveStaffRecord(item.email, { active: !item.active }); };
+  const exportRows = (name: string, rows: unknown) => {
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" }));
+    link.download = `jackx-${name}.json`; link.click(); URL.revokeObjectURL(link.href);
   };
   const saveExpense = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1425,7 +1509,32 @@ function Admin({
             </table>
           </div>
         </section>
-        <section className="table staff-panel">
+        <section className="settings-premium">
+          <div className="settings-toolbar">
+            <input placeholder="بحث في الإعدادات..." value={settingsSearch} onChange={(e) => setSettingsSearch(e.target.value)} />
+            <select value={settingsFilter} onChange={(e) => setSettingsFilter(e.target.value)}><option value="all">كل الحالات</option><option value="active">نشط فقط</option><option value="inactive">متوقف فقط</option></select>
+            <button type="button" onClick={() => exportRows("settings", { categories: categoryRecords, payments: paymentRecords, operations: operationRecords, staff: staffRecords })}>تصدير</button>
+            <button type="button" onClick={() => setSaved("الاستيراد متاح بصيغة JSON من نسخة النظام")}>استيراد</button>
+          </div>
+          <section className="settings-card">
+            <div className="settings-card-head"><div><span className="eyebrow">MENU STRUCTURE</span><h2>إدارة أقسام المنيو</h2><p>تحكم في الأقسام التي تظهر عند إضافة المنتجات.</p></div><form onSubmit={submitCategory}><input placeholder="اسم القسم الجديد" value={categoryName} onChange={(e) => setCategoryName(e.target.value)} /><button className="btn" type="submit">{editingCategory ? "حفظ التعديل" : "إضافة قسم جديد"}</button></form></div>
+            <div className="settings-table-wrap"><table className="settings-table"><thead><tr><th>#</th><th>اسم القسم</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>{filteredCategories.map((item, i) => <tr key={item.id}><td>{i + 1}</td><td><b>{item.name}</b></td><td><button type="button" className={item.active ? "status-on" : "status-off"} onClick={() => void saveCategoryRecord({ ...item, active: !item.active })}>{item.active ? "نشط" : "متوقف"}</button></td><td><button type="button" onClick={() => editCategory(item.name)}>تعديل</button><button type="button" className="danger" onClick={() => void deleteCategoryRecord(item.id)}>حذف</button></td></tr>)}</tbody></table></div>
+          </section>
+          <section className="settings-card">
+            <div className="settings-card-head"><div><span className="eyebrow">PAYMENT METHODS</span><h2>طرق الدفع</h2><p>الطرق النشطة فقط تظهر للعميل داخل السلة.</p></div><form onSubmit={savePaymentRecord}><input placeholder="طريقة الدفع" value={paymentDraft.name} onChange={(e) => setPaymentDraft({ ...paymentDraft, name: e.target.value })} /><input placeholder="اسم الشركة" value={paymentDraft.company} onChange={(e) => setPaymentDraft({ ...paymentDraft, company: e.target.value })} /><input placeholder="رقم الحساب" value={paymentDraft.account} onChange={(e) => setPaymentDraft({ ...paymentDraft, account: e.target.value })} /><input placeholder="اسم مالك الحساب" value={paymentDraft.owner} onChange={(e) => setPaymentDraft({ ...paymentDraft, owner: e.target.value })} /><button className="btn" type="submit">{editingPayment ? "حفظ التعديل" : "إضافة طريقة دفع"}</button></form></div>
+            <div className="settings-table-wrap"><table className="settings-table"><thead><tr><th>#</th><th>طريقة الدفع</th><th>اسم الشركة</th><th>رقم الحساب</th><th>اسم مالك الحساب</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>{filteredPayments.map((item, i) => <tr key={item.id}><td>{i + 1}</td><td><b>{item.name}</b></td><td>{item.company}</td><td>{item.account}</td><td>{item.owner}</td><td><button type="button" className={item.active ? "status-on" : "status-off"} onClick={() => void togglePaymentRecord(item)}>{item.active ? "تشغيل" : "إيقاف"}</button></td><td><button type="button" onClick={() => { setEditingPayment(item.id); setPaymentDraft({ name: item.name, company: item.company, account: item.account, owner: item.owner }); }}>تعديل</button><button type="button" className="danger" onClick={() => void savePaymentRecords(paymentRecords.filter((x) => x.id !== item.id))}>حذف</button></td></tr>)}</tbody></table></div>
+          </section>
+          <section className="settings-card">
+            <div className="settings-card-head"><div><span className="eyebrow">ORDER ROUTING</span><h2>طرق استقبال الطلبات</h2><p>اختر الطريقة الفعالة وسيتم تطبيقها على الطلبات الجديدة مباشرة.</p></div><form onSubmit={saveOperationRecord}><select value={operationDraft.id} onChange={(e) => setOperationDraft({ ...operationDraft, id: e.target.value as OperationMode })}><option value="cashier">الكاشير</option><option value="direct-screen">الشاشات</option><option value="direct-printer">الطابعة</option></select><input placeholder="اسم طريقة الاستقبال" value={operationDraft.name} onChange={(e) => setOperationDraft({ ...operationDraft, name: e.target.value })} /><button className="btn" type="submit">{editingOperation ? "حفظ التعديل" : "إضافة طريقة استقبال"}</button></form></div>
+            <div className="settings-table-wrap"><table className="settings-table"><thead><tr><th>#</th><th>طريقة استقبال الطلب</th><th>الحالة</th><th>تفعيل</th><th>إجراءات</th></tr></thead><tbody>{filteredOperations.map((item, i) => <tr key={item.id}><td>{i + 1}</td><td><b>{item.name}</b></td><td><button type="button" className={item.active ? "status-on" : "status-off"} onClick={() => void toggleOperationRecord(item)}>{item.active ? "نشط" : "متوقف"}</button></td><td><button type="button" className={operationMode === item.id ? "route-selected" : "route-button"} disabled={!item.active} onClick={() => { onOperationModeChange(item.id); void saveOperationRecords(operationRecords, item.id); }}>{operationMode === item.id ? "مفعلة الآن" : "تفعيل"}</button></td><td><button type="button" onClick={() => { setEditingOperation(item.id); setOperationDraft({ id: item.id, name: item.name }); }}>تعديل</button><button type="button" className="danger" onClick={() => void saveOperationRecords(operationRecords.filter((x) => x.id !== item.id), operationMode === item.id ? "cashier" : operationMode)}>حذف</button></td></tr>)}</tbody></table></div>
+          </section>
+          <section className="settings-card">
+            <div className="settings-card-head"><div><span className="eyebrow">TEAM ACCESS</span><h2>إدارة المستخدمين والصلاحيات</h2><p>الصلاحيات والحالة تُحفظ من هنا مباشرة. كلمات المرور لا تُعرض لأسباب أمنية.</p></div><form onSubmit={saveStaffFromSettings}><input placeholder="اسم المستخدم" value={username} onChange={(e) => setUsername(e.target.value)} required /><input placeholder="رقم الهاتف" value={staffPhone} onChange={(e) => setStaffPhone(e.target.value)} /><input type={showPassword ? "text" : "password"} placeholder={editingStaff ? "كلمة مرور جديدة اختيارية" : "كلمة المرور"} minLength={editingStaff ? undefined : 6} required={!editingStaff} value={password} onChange={(e) => setPassword(e.target.value)} /><button type="button" className="show-password" onClick={() => setShowPassword(!showPassword)}>{showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}</button><select value={role} onChange={(e) => setRole(e.target.value)}><option value="cashier">كاشير</option><option value="admin">مدير</option></select><button className="btn" type="submit">{editingStaff ? "حفظ تعديل المستخدم" : "إضافة مستخدم جديد"}</button></form></div>
+            <div className="settings-table-wrap"><table className="settings-table"><thead><tr><th>#</th><th>اسم المستخدم</th><th>رقم الهاتف</th><th>البريد</th><th>الباسورد</th><th>الصلاحية</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>{filteredStaff.map((item, i) => <tr key={item.id}><td>{i + 1}</td><td><b>{item.username}</b></td><td>{item.phone}</td><td>{item.email}</td><td>••••••••</td><td><span className="role-badge">{item.role === "admin" || item.role === "مدير" ? "مدير" : "كاشير"}</span></td><td><button type="button" className={item.active ? "status-on" : "status-off"} onClick={() => void toggleStaff(item)}>{item.active ? "تشغيل" : "إيقاف"}</button></td><td><button type="button" onClick={() => { setEditingStaff(item.email); setUsername(item.username); setStaffPhone(item.phone === "—" ? "" : item.phone); setRole(item.role); }}>تعديل</button><button type="button" className="danger" onClick={() => void deleteStaffRecord(item.email)}>حذف</button></td></tr>)}</tbody></table></div>
+          </section>
+          {saved && <div className="settings-toast">{saved}</div>}
+        </section>
+        <section className="table staff-panel legacy-settings">
           <h2>إدارة أقسام المنيو</h2>
           <p>
             أضف الأقسام أو عدّلها أو احذفها. ستظهر الأقسام هنا تلقائيًا في قائمة

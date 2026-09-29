@@ -133,6 +133,42 @@ export const saveCategory = (name: string) => setDoc(doc(db, "categories", name)
 export const deleteCategory = (name: string) => deleteDoc(doc(db, "categories", name));
 export const watchCategories = (onChange: (categories: string[]) => void, onError: (error: Error) => void) =>
   onSnapshot(collection(db, "categories"), (snapshot) => onChange(snapshot.docs.map((item) => String(item.data().name))), onError);
+export type CategoryRecord = { id: string; name: string; active: boolean };
+export const watchCategoryRecords = (onChange: (categories: CategoryRecord[]) => void, onError: (error: Error) => void) =>
+  onSnapshot(collection(db, "categories"), (snapshot) => onChange(snapshot.docs.map((item) => ({ id: item.id, name: String(item.data().name), active: item.data().active !== false }))), onError);
+export const saveCategoryRecord = (category: CategoryRecord) =>
+  setDoc(doc(db, "categories", category.id), { name: category.name, active: category.active, updatedAt: serverTimestamp() }, { merge: true });
+export const deleteCategoryRecord = (id: string) => deleteDoc(doc(db, "categories", id));
+export type PaymentRecord = { id: string; name: string; company: string; account: string; owner: string; active: boolean };
+const defaultPaymentRecords: PaymentRecord[] = [
+  { id: "cash", name: "نقدي", company: "—", account: "—", owner: "—", active: true },
+  { id: "card", name: "بطاقة بنكية", company: "—", account: "—", owner: "—", active: true },
+  { id: "wallet", name: "محفظة إلكترونية", company: "—", account: "—", owner: "—", active: false },
+];
+export const watchPaymentRecords = (onChange: (methods: PaymentRecord[]) => void, onError: (error: Error) => void) =>
+  onSnapshot(doc(db, "settings", "payments"), (snapshot) => {
+    const records = snapshot.data()?.records as PaymentRecord[] | undefined;
+    onChange(records?.length ? records : defaultPaymentRecords);
+  }, onError);
+export const savePaymentRecords = (records: PaymentRecord[]) => setDoc(doc(db, "settings", "payments"), { records, methods: records.filter((item) => item.active).map((item) => item.id), updatedAt: serverTimestamp() }, { merge: true });
+export type OperationRecord = { id: OperationMode; name: string; active: boolean };
+const defaultOperationRecords: OperationRecord[] = [
+  { id: "cashier", name: "الكاشير أولًا ثم التوجيه", active: true },
+  { id: "direct-screen", name: "إرسال مباشر للشاشات", active: true },
+  { id: "direct-printer", name: "إرسال مباشر للطابعة", active: true },
+];
+export const watchOperationRecords = (onChange: (methods: OperationRecord[]) => void, onError: (error: Error) => void) =>
+  onSnapshot(doc(db, "settings", "operations"), (snapshot) => {
+    const records = snapshot.data()?.records as OperationRecord[] | undefined;
+    onChange(records?.length ? records : defaultOperationRecords);
+  }, onError);
+export const saveOperationRecords = (records: OperationRecord[], selected: OperationMode) =>
+  setDoc(doc(db, "settings", "operations"), { records, mode: selected, updatedAt: serverTimestamp() }, { merge: true });
+export type StaffRecord = { id: string; email: string; username: string; phone: string; role: string; active: boolean };
+export const watchStaffRecords = (onChange: (staff: StaffRecord[]) => void, onError: (error: Error) => void) =>
+  onSnapshot(collection(db, "staff"), (snapshot) => onChange(snapshot.docs.map((item) => ({ id: item.id, email: String(item.data().email || item.id), username: String(item.data().username || item.id.split("@")[0]), phone: String(item.data().phone || "—"), role: String(item.data().role || "cashier"), active: item.data().active !== false }))), onError);
+export const saveStaffRecord = (email: string, data: Partial<StaffRecord>) => setDoc(doc(db, "staff", email.toLowerCase()), { email: email.toLowerCase(), ...data, updatedAt: serverTimestamp() }, { merge: true });
+export const deleteStaffRecord = (email: string) => deleteDoc(doc(db, "staff", email.toLowerCase()));
 export const deleteMenuItem = (id: string | number) =>
   deleteDoc(doc(db, "menu", String(id)));
 export const createStaffAccount = async (email: string, password: string) => {
