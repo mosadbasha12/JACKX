@@ -320,7 +320,7 @@ function CustomerPortal({ menuItems }: { menuItems: Product[] | null }) {
                         key={p.id}
                         onClick={() => toggle(p.id)}
                       >
-                        <img src={p.img} />
+                        <img src={p.img} alt={p.en} loading="lazy" decoding="async" />
                         <span>
                           {p.name}
                           <small>{p.en}</small>
@@ -499,7 +499,13 @@ function Client({
           </a>
         </div>
         <div className="hero-img reveal-on-scroll is-visible">
-          <img src={menuItems?.[0]?.img || "/jackx-logo.png"} />
+          <img
+            src={menuItems?.[0]?.img || "/jackx-logo.png"}
+            alt="JACKX"
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
+          />
           <span>
             طازج كل يوم
             <br />
@@ -536,7 +542,7 @@ function Client({
         <div className="grid">
           {menuItems === null ? <div className="menu-loading">جاري تحميل المنيو...</div> : list.length ? list.map((p) => (
               <article className="reveal-on-scroll" key={p.id}>
-                <img src={p.img} />
+                <img src={p.img} alt={p.en} loading="lazy" decoding="async" />
                 <button
                   className="favorite-card"
                   aria-label="إضافة للمفضلة"
@@ -591,7 +597,7 @@ function Client({
             </button>
             {modal.id !== -1 ? (
               <>
-                <img src={modal.img} />
+                <img src={modal.img} alt={modal.en} loading="lazy" decoding="async" />
                 <div className="pad">
                   <label>{modal.name}</label>
                   <h2>{modal.en}</h2>
@@ -1352,7 +1358,7 @@ function Admin({
                     <td>{item.name}</td>
                     <td>{item.en}</td>
                     <td className="menu-description-cell">{item.description || "—"}</td>
-                    <td>{item.img ? <img src={item.img} alt="" /> : "—"}</td>
+                    <td>{item.img ? <img src={item.img} alt={item.en} loading="lazy" decoding="async" /> : "—"}</td>
                     <td>{eg(item.price)}</td>
                     <td>{item.cat}</td>
                     <td>
