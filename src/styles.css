@@ -1248,3 +1248,13 @@ body,
   overflow-wrap: break-word;
   line-height: 1.8;
 }
+.menu-table th:last-child,
+.menu-table td:last-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 190px;
+  background: #fff;
+  box-shadow: 8px 0 14px rgba(58, 36, 31, .08);
+}
+.menu-table th:last-child { background: #fbf5ef; z-index: 3; }
