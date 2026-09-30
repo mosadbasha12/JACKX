@@ -1235,3 +1235,16 @@ body,
 .detected-table small { opacity: .7; }
 .detected-table-off { border-color: rgba(190, 54, 42, .4); background: rgba(190, 54, 42, .08); }
 @media (max-width: 700px) { .table-form { grid-template-columns: 1fr; } .tables-settings-table { min-width: 760px; } }
+
+/* Keep the product description readable inside the admin table. */
+.menu-table { min-width: 1450px; }
+.menu-table th:nth-child(5),
+.menu-table td:nth-child(5) { width: 360px; min-width: 360px; }
+.menu-table td { vertical-align: middle; }
+.menu-table .menu-description-cell {
+  max-width: none;
+  white-space: normal !important;
+  word-break: normal;
+  overflow-wrap: break-word;
+  line-height: 1.8;
+}
