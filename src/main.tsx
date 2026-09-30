@@ -12,6 +12,7 @@ import {
   LogOut,
   MapPin,
   Menu as MenuIcon,
+  Moon,
   Minus,
   Plus,
   Printer,
@@ -20,6 +21,7 @@ import {
   Settings2,
   ShoppingBag,
   Store,
+  Sun,
   Truck,
   UserRound,
   Wallet,
@@ -61,10 +63,15 @@ import {
   watchStaffRecords,
   saveStaffRecord,
   deleteStaffRecord,
+  watchTables,
+  getTableRecord,
+  saveTableRecord,
+  deleteTableRecord,
   type CategoryRecord,
   type PaymentRecord,
   type OperationRecord,
   type StaffRecord,
+  type TableRecord,
   type OperationMode,
   type PaymentMethod,
 } from "./firebase";
@@ -88,6 +95,7 @@ type Order = {
   name: string;
   phone: string;
   table?: string;
+  tableId?: string;
   address?: string;
   payment: string;
   items: Line[];
@@ -156,6 +164,24 @@ function InstallButton() {
   return (
     <button className="install-app" type="button" onClick={install}>
       <Download size={16} /> تثبيت التطبيق
+    </button>
+  );
+}
+function ThemeButton() {
+  const [dark, setDark] = useState(() => localStorage.getItem("jackx-theme") === "dark");
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark-mode", dark);
+    localStorage.setItem("jackx-theme", dark ? "dark" : "light");
+  }, [dark]);
+  return (
+    <button
+      className="theme-toggle"
+      type="button"
+      aria-label={dark ? "الوضع الفاتح" : "الوضع الداكن"}
+      title={dark ? "الوضع الفاتح" : "الوضع الداكن"}
+      onClick={() => setDark((value) => !value)}
+    >
+      {dark ? <Sun size={20} /> : <Moon size={20} />}
     </button>
   );
 }
@@ -434,10 +460,14 @@ function Client({
   addOrder,
   paymentMethods,
   menuItems,
+  tableContext,
+  tableRequested,
 }: {
   addOrder: (o: Order) => void;
   paymentMethods: PaymentMethod[];
   menuItems: Product[] | null;
+  tableContext: TableRecord | null;
+  tableRequested: boolean;
 }) {
   const [cat, setCat] = useState("كل الأصناف"),
     [q, setQ] = useState(""),
@@ -448,6 +478,7 @@ function Client({
     [favorites, setFavorites] = useState<number[]>(() =>
       JSON.parse(localStorage.getItem("jackx-favorites") || "[]"),
     );
+  const [heroProduct, setHeroProduct] = useState<Product | null>(null);
   const [customerUid, setCustomerUid] = useState(auth.currentUser?.uid || "");
   useEffect(() => {
     const sync = () => setCustomerUid(auth.currentUser?.uid || "");
@@ -463,6 +494,17 @@ function Client({
     targets.forEach((target) => observer.observe(target));
     return () => observer.disconnect();
   }, [menuItems, cat, q]);
+  useEffect(() => {
+    if (!menuItems?.length) return;
+    const chooseHeroProduct = () => {
+      const available = menuItems.filter((item) => item.available !== false && item.img);
+      const source = available.length ? available : menuItems.filter((item) => item.img);
+      if (source.length) setHeroProduct(source[Math.floor(Math.random() * source.length)]);
+    };
+    chooseHeroProduct();
+    const timer = window.setInterval(chooseHeroProduct, 60_000);
+    return () => window.clearInterval(timer);
+  }, [menuItems]);
   const add = (p: Product) =>
     setCart((c) =>
       c.some((x) => x.id === p.id)
@@ -484,6 +526,7 @@ function Client({
       return searchTerms.every((term) => searchable.includes(term));
     },
   );
+  const searchMatches = q.trim() ? list.slice(0, 6) : [];
   const total = cart.reduce((s, x) => s + x.price * x.qty, 0);
   const toggleFavorite = (id: number) => {
     if (!customerUid) {
@@ -508,6 +551,7 @@ function Client({
       phone: customerUid ? "" : String(f.get("phone")),
       address: String(f.get("address") || ""),
       table: String(f.get("table") || ""),
+      tableId: tableContext?.id || "",
       payment: String(f.get("payment")),
       items: cart,
       status: "new",
@@ -518,10 +562,59 @@ function Client({
     setNotice("تم استلام طلبك بنجاح ✨");
     setTimeout(() => setNotice(""), 3000);
   };
+  const renderProductCard = (p: Product) => (
+    <article className={`reveal-on-scroll ${p.available === false ? "sold-out-card" : ""}`} key={p.id}>
+      <div className="product-image-wrap">
+        <img src={p.img || "/jackx-logo.png"} alt={p.en} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.src = "/jackx-logo.png"; }} />
+        {p.available === false && <span className="sold-out-stamp">SOLD OUT</span>}
+      </div>
+      <button className="favorite-card" aria-label="إضافة للمفضلة" onClick={() => toggleFavorite(p.id)}>
+        {favorites.includes(p.id) ? "♥" : "♡"}
+      </button>
+      <button className="plus" disabled={p.available === false} onClick={() => add(p)}><Plus /></button>
+      <div>
+        <small>{p.name}</small>
+        <h3>{p.en}</h3>
+        <strong>{eg(p.price)}</strong>
+        <button className="order" disabled={p.available === false} onClick={() => setModal(p)}>
+          {p.available === false ? "SOLD OUT" : <>اطلبه دلوقتي <ArrowLeft size={15} /></>}
+        </button>
+      </div>
+    </article>
+  );
   return (
     <main className="client" dir="rtl">
       <nav>
-        <Logo />
+        <button
+          className="brand-home"
+          type="button"
+          aria-label="العودة للرئيسية"
+          onClick={() => {
+            setCat("كل الأصناف");
+            setQ("");
+            history.replaceState(null, "", `${location.pathname}${location.search}`);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        >
+          <Logo />
+        </button>
+        <div className="header-search-wrap">
+          <div className="search header-search">
+            <Search size={17} />
+            <input placeholder="ابحث عن صنف أو مكوّن..." value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+          {q.trim() && (
+            <div className="search-results" role="listbox">
+              {searchMatches.length ? searchMatches.map((product) => (
+                <button key={product.id} type="button" onClick={() => { setModal(product); setQ(""); }}>
+                  <img src={product.img || "/jackx-logo.png"} alt="" />
+                  <span><b>{product.en}</b><small>{product.name} · {eg(product.price)}</small></span>
+                </button>
+              )) : <p>لا توجد نتائج مطابقة</p>}
+            </div>
+          )}
+        </div>
+        <ThemeButton />
         <InstallButton />
         <button
           className="cart"
@@ -546,11 +639,12 @@ function Client({
         </div>
         <div className="hero-img reveal-on-scroll is-visible">
           <img
-            src={menuItems?.[0]?.img || "/jackx-logo.png"}
+            src={heroProduct?.img || "/jackx-logo.png"}
             alt="JACKX"
             loading="eager"
             fetchPriority="high"
             decoding="async"
+            onError={(event) => { event.currentTarget.src = "/jackx-logo.png"; }}
           />
           <span>
             طازج كل يوم
@@ -565,14 +659,6 @@ function Client({
             <label>OUR MENU / المنيو</label>
             <h2>اختار اللي على مزاجك</h2>
           </div>
-          <div className="search">
-            <Search size={17} />
-            <input
-              placeholder="دور على صنف..."
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
         </header>
         <div className="cats reveal-on-scroll">
           {visibleCategories.map((c) => (
@@ -585,34 +671,26 @@ function Client({
             </button>
           ))}
         </div>
-        <div className="grid">
-          {menuItems === null ? <div className="menu-loading">جاري تحميل المنيو...</div> : list.length ? list.map((p) => (
-              <article className={`reveal-on-scroll ${p.available === false ? "sold-out-card" : ""}`} key={p.id}>
-                <div className="product-image-wrap">
-                  <img src={p.img || "/jackx-logo.png"} alt={p.en} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.src = "/jackx-logo.png"; }} />
-                  {p.available === false && <span className="sold-out-stamp">SOLD OUT</span>}
-                </div>
-                <button
-                  className="favorite-card"
-                  aria-label="إضافة للمفضلة"
-                  onClick={() => toggleFavorite(p.id)}
-                >
-                  {favorites.includes(p.id) ? "♥" : "♡"}
-                </button>
-              <button className="plus" disabled={p.available === false} onClick={() => add(p)}>
-                <Plus />
-              </button>
-              <div>
-                <small>{p.name}</small>
-                <h3>{p.en}</h3>
-                <strong>{eg(p.price)}</strong>
-                <button className="order" disabled={p.available === false} onClick={() => setModal(p)}>
-                  {p.available === false ? "SOLD OUT" : <>اطلبه دلوقتي <ArrowLeft size={15} /></>}
-                </button>
-              </div>
-            </article>
-          )) : <div className="menu-loading">لا توجد أصناف متاحة حاليًا.</div>}
-        </div>
+        {menuItems === null ? <div className="menu-loading">جاري تحميل المنيو...</div> : cat === "كل الأصناف" ? (
+          <div className="menu-sections">
+            {visibleCategories.slice(1).map((category) => {
+              const categoryItems = list.filter((item) => item.cat === category);
+              if (!categoryItems.length) return null;
+              return (
+                <section className="menu-category-row reveal-on-scroll" key={category}>
+                  <div className="category-row-head">
+                    <h3>{category}</h3>
+                    <button type="button" onClick={() => setCat(category)}>عرض القسم</button>
+                  </div>
+                  <div className="horizontal-products">{categoryItems.map(renderProductCard)}</div>
+                </section>
+              );
+            })}
+            {!list.length && <div className="menu-loading">لا توجد أصناف متاحة حاليًا.</div>}
+          </div>
+        ) : list.length ? (
+          <div className="horizontal-products single-category">{list.map(renderProductCard)}</div>
+        ) : <div className="menu-loading">لا توجد أصناف متاحة حاليًا.</div>}
       </section>
       <section id="story" className="story reveal-on-scroll">
         <label>WHY JACKX</label>
@@ -733,6 +811,17 @@ function Client({
               )}
               {checkout === "delivery" ? (
                 <input name="address" required placeholder="العنوان" />
+              ) : tableContext ? (
+                <div className="detected-table" role="status">
+                  <span>الطلب للترابيزة</span>
+                  <strong>#{tableContext.number}{tableContext.name ? ` · ${tableContext.name}` : ""}</strong>
+                  <small>تم التعرف عليها تلقائيًا من QR</small>
+                </div>
+              ) : tableRequested ? (
+                <div className="detected-table detected-table-off" role="alert">
+                  <strong>هذا الـ QR غير متاح حاليًا</strong>
+                  <small>اطلب من الإدارة تفعيل الترابيزة قبل إرسال الطلب.</small>
+                </div>
               ) : (
                 <input name="table" required placeholder="رقم الترابيزة" />
               )}
@@ -749,7 +838,7 @@ function Client({
                   ))}
                 </select>
               )}
-              <button className="btn" type="submit">
+              <button className="btn" type="submit" disabled={checkout === "dinein" && tableRequested && !tableContext}>
                 تأكيد الطلب <Check size={17} />
               </button>
             </form>
@@ -918,6 +1007,10 @@ function Admin({
   const [paymentRecords, setPaymentRecords] = useState<PaymentRecord[]>([]);
   const [operationRecords, setOperationRecords] = useState<OperationRecord[]>([]);
   const [staffRecords, setStaffRecords] = useState<StaffRecord[]>([]);
+  const [tableRecords, setTableRecords] = useState<TableRecord[]>([]);
+  const [tableNumber, setTableNumber] = useState("");
+  const [tableName, setTableName] = useState("");
+  const [editingTable, setEditingTable] = useState<string | null>(null);
   const [settingsSearch, setSettingsSearch] = useState("");
   const [settingsFilter, setSettingsFilter] = useState("all");
   const [paymentDraft, setPaymentDraft] = useState({ name: "", company: "", account: "", owner: "" });
@@ -950,6 +1043,7 @@ function Admin({
   useEffect(() => watchPaymentRecords(setPaymentRecords, console.error), []);
   useEffect(() => watchOperationRecords(setOperationRecords, console.error), []);
   useEffect(() => watchStaffRecords(setStaffRecords, console.error), []);
+  useEffect(() => watchTables(setTableRecords, console.error), []);
   const [username, setUsername] = useState(""),
     [password, setPassword] = useState(""),
     [showPassword, setShowPassword] = useState(false),
@@ -1007,6 +1101,52 @@ function Admin({
   const filteredPayments = paymentRecords.filter((item) => item.name.includes(settingsSearch) && (settingsFilter === "all" || (settingsFilter === "active" ? item.active : !item.active)));
   const filteredOperations = operationRecords.filter((item) => item.name.includes(settingsSearch) && (settingsFilter === "all" || (settingsFilter === "active" ? item.active : !item.active)));
   const filteredStaff = staffRecords.filter((item) => `${item.username} ${item.email} ${item.phone}`.toLowerCase().includes(settingsSearch.toLowerCase()) && (settingsFilter === "all" || (settingsFilter === "active" ? item.active : !item.active)));
+  const filteredTables = tableRecords.filter((item) => `${item.number} ${item.name}`.toLowerCase().includes(settingsSearch.toLowerCase()) && (settingsFilter === "all" || (settingsFilter === "active" ? item.active : !item.active)));
+  const tableLink = (table: TableRecord) => `${window.location.origin}/?tableId=${encodeURIComponent(table.id)}`;
+  const tableQrLink = (table: TableRecord) => `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(tableLink(table))}`;
+  const saveTable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const number = tableNumber.trim();
+    if (!number) return;
+    const id = editingTable || `table-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const next: TableRecord = { id, number, name: tableName.trim(), active: editingTable ? tableRecords.find((item) => item.id === id)?.active !== false : true };
+    try {
+      await saveTableRecord(next);
+      setTableRecords((items) => items.some((item) => item.id === id) ? items.map((item) => item.id === id ? next : item) : [...items, next]);
+      setTableNumber("");
+      setTableName("");
+      setEditingTable(null);
+      setSaved("تم حفظ الترابيزة و QR الخاص بها");
+    } catch (error) {
+      console.error(error);
+      setSaved("تعذر حفظ الترابيزة؛ تأكد من صلاحية المدير");
+    }
+    setTimeout(() => setSaved(""), 3000);
+  };
+  const toggleTable = async (table: TableRecord) => {
+    const next = { ...table, active: !table.active };
+    try {
+      await saveTableRecord(next);
+      setTableRecords((items) => items.map((item) => item.id === table.id ? next : item));
+      setSaved(next.active ? "تم تشغيل الترابيزة" : "تم إيقاف الترابيزة");
+    } catch (error) {
+      console.error(error);
+      setSaved("تعذر تغيير حالة الترابيزة");
+    }
+    setTimeout(() => setSaved(""), 2500);
+  };
+  const removeTable = async (table: TableRecord) => {
+    if (!window.confirm(`حذف الترابيزة ${table.number} نهائيًا؟`)) return;
+    try {
+      await deleteTableRecord(table.id);
+      setTableRecords((items) => items.filter((item) => item.id !== table.id));
+      setSaved("تم حذف الترابيزة");
+    } catch (error) {
+      console.error(error);
+      setSaved("تعذر حذف الترابيزة");
+    }
+    setTimeout(() => setSaved(""), 2500);
+  };
   const savePaymentRecord = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!paymentDraft.name.trim()) return;
@@ -1577,7 +1717,7 @@ function Admin({
           <div className="settings-toolbar">
             <input placeholder="بحث في الإعدادات..." value={settingsSearch} onChange={(e) => setSettingsSearch(e.target.value)} />
             <select value={settingsFilter} onChange={(e) => setSettingsFilter(e.target.value)}><option value="all">كل الحالات</option><option value="active">نشط فقط</option><option value="inactive">متوقف فقط</option></select>
-            <button type="button" onClick={() => exportRows("settings", { categories: categoryRecords, payments: paymentRecords, operations: operationRecords, staff: staffRecords })}>تصدير</button>
+            <button type="button" onClick={() => exportRows("settings", { categories: categoryRecords, payments: paymentRecords, operations: operationRecords, staff: staffRecords, tables: tableRecords })}>تصدير</button>
             <button type="button" onClick={() => setSaved("الاستيراد متاح بصيغة JSON من نسخة النظام")}>استيراد</button>
           </div>
           <section className="settings-card">
@@ -1595,6 +1735,31 @@ function Admin({
           <section className="settings-card">
             <div className="settings-card-head"><div><span className="eyebrow">TEAM ACCESS</span><h2>إدارة المستخدمين والصلاحيات</h2><p>الصلاحيات والحالة تُحفظ من هنا مباشرة. كلمات المرور لا تُعرض لأسباب أمنية.</p></div><form onSubmit={saveStaffFromSettings}><input placeholder="اسم المستخدم" value={username} onChange={(e) => setUsername(e.target.value)} required /><input placeholder="رقم الهاتف" value={staffPhone} onChange={(e) => setStaffPhone(e.target.value)} /><input type={showPassword ? "text" : "password"} placeholder={editingStaff ? "كلمة مرور جديدة اختيارية" : "كلمة المرور"} minLength={editingStaff ? undefined : 6} required={!editingStaff} value={password} onChange={(e) => setPassword(e.target.value)} /><button type="button" className="show-password" onClick={() => setShowPassword(!showPassword)}>{showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}</button><select value={role} onChange={(e) => setRole(e.target.value)}><option value="cashier">كاشير</option><option value="admin">مدير</option></select><button className="btn" type="submit">{editingStaff ? "حفظ تعديل المستخدم" : "إضافة مستخدم جديد"}</button><button type="button" className="link-existing" onClick={() => void linkExistingStaff()}>ربط حساب موجود</button></form></div>
             <div className="settings-table-wrap"><table className="settings-table"><thead><tr><th>#</th><th>اسم المستخدم</th><th>رقم الهاتف</th><th>البريد</th><th>الباسورد</th><th>الصلاحية</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>{filteredStaff.map((item, i) => <tr key={item.id}><td>{i + 1}</td><td><b>{item.username}</b></td><td>{item.phone}</td><td>{item.email}</td><td>••••••••</td><td><span className="role-badge">{item.role === "admin" || item.role === "مدير" ? "مدير" : "كاشير"}</span></td><td><button type="button" className={item.active ? "status-on" : "status-off"} onClick={() => void toggleStaff(item)}>{item.active ? "تشغيل" : "إيقاف"}</button></td><td><button type="button" onClick={() => { setEditingStaff(item.email); setUsername(item.username); setStaffPhone(item.phone === "—" ? "" : item.phone); setRole(item.role); }}>تعديل</button><button type="button" className="danger" onClick={() => void deleteStaffRecord(item.email)}>حذف</button></td></tr>)}</tbody></table></div>
+          </section>
+          <section className="settings-card tables-card">
+            <div className="settings-card-head">
+              <div><span className="eyebrow">TABLE QR MANAGEMENT</span><h2>إدارة ترابيزات الفرع</h2><p>أنشئ QR ثابت لكل ترابيزة. عند مسحه يفتح المنيو ويربط طلب داخل الفرع بالترابيزة تلقائيًا.</p></div>
+              <form onSubmit={saveTable} className="table-form">
+                <input required placeholder="رقم الترابيزة" value={tableNumber} onChange={(e) => setTableNumber(e.target.value)} />
+                <input placeholder="اسم أو مكان اختياري" value={tableName} onChange={(e) => setTableName(e.target.value)} />
+                <button className="btn" type="submit">{editingTable ? "حفظ تعديل الترابيزة" : "إضافة ترابيزة جديدة"}</button>
+                {editingTable && <button type="button" onClick={() => { setEditingTable(null); setTableNumber(""); setTableName(""); }}>إلغاء</button>}
+              </form>
+            </div>
+            <div className="settings-table-wrap">
+              <table className="settings-table tables-settings-table">
+                <thead><tr><th>#</th><th>رقم الترابيزة</th><th>الاسم / المكان</th><th>QR</th><th>الحالة</th><th>الرابط</th><th>إجراءات</th></tr></thead>
+                <tbody>{filteredTables.length ? filteredTables.map((item, i) => <tr key={item.id}>
+                  <td>{i + 1}</td>
+                  <td><b>#{item.number}</b></td>
+                  <td>{item.name || "—"}</td>
+                  <td><img className="table-qr" src={tableQrLink(item)} alt={`QR الترابيزة ${item.number}`} loading="lazy" /></td>
+                  <td><button type="button" className={item.active ? "status-on" : "status-off"} onClick={() => void toggleTable(item)}>{item.active ? "تشغيل" : "إيقاف"}</button></td>
+                  <td><button type="button" onClick={() => void navigator.clipboard?.writeText(tableLink(item))}>نسخ الرابط</button></td>
+                  <td><button type="button" onClick={() => { setEditingTable(item.id); setTableNumber(item.number); setTableName(item.name); }}>تعديل</button><a className="table-qr-download" href={tableQrLink(item)} target="_blank" rel="noreferrer">فتح QR</a><button type="button" className="danger" onClick={() => void removeTable(item)}>حذف</button></td>
+                </tr>) : <tr><td colSpan={7} className="empty-state">لا توجد ترابيزات حتى الآن — أضف أول ترابيزة من النموذج بالأعلى</td></tr>}</tbody>
+              </table>
+            </div>
           </section>
           <section className="settings-card permissions-card">
             <div className="settings-card-head"><div><span className="eyebrow">ACCESS CONTROL</span><h2>صلاحيات المستخدمين</h2><p>هنا سيظهر لاحقًا كل ما هو مسموح به داخل حساب كل مستخدم. تركناها فارغة حاليًا بدون منح صلاحيات إضافية.</p></div></div>
@@ -1772,6 +1937,7 @@ function App() {
     [loggedIn, setLoggedIn] = useState(false),
     [operationMode, setOperationMode] = useState<OperationMode>("cashier");
   const [menuItems, setMenuItems] = useState<Product[] | null>(null);
+  const [tableContext, setTableContext] = useState<TableRecord | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
     "cash",
     "card",
@@ -1783,6 +1949,7 @@ function App() {
       : location.pathname.includes("admin")
         ? "admin"
         : "client");
+  const tableId = new URLSearchParams(location.search).get("tableId");
   useEffect(() => {
     if (view === "client" || !loggedIn) return;
     const watch = view === "admin" ? watchAllOrders : watchOrders;
@@ -1802,6 +1969,18 @@ function App() {
     if (view === "client" || !loggedIn) return;
     loadOperationMode().then(setOperationMode).catch(console.error);
   }, [view, loggedIn]);
+  useEffect(() => {
+    if (view !== "client" || !tableId) {
+      setTableContext(null);
+      return;
+    }
+    getTableRecord(tableId)
+      .then((table) => setTableContext(table?.active ? table : null))
+      .catch((error) => {
+        console.error(error);
+        setTableContext(null);
+      });
+  }, [view, tableId]);
   const add = async (o: Order) => {
     const saved = { ...o, userId: auth.currentUser?.uid || "" };
     setOrders((x) => [o, ...x]);
@@ -1837,6 +2016,8 @@ function App() {
         addOrder={add}
         paymentMethods={paymentMethods}
         menuItems={menuItems}
+        tableContext={tableContext}
+        tableRequested={Boolean(tableId)}
       />
       <CustomerPortal menuItems={menuItems} />
     </>

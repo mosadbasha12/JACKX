@@ -169,6 +169,25 @@ export const watchStaffRecords = (onChange: (staff: StaffRecord[]) => void, onEr
   onSnapshot(collection(db, "staff"), (snapshot) => onChange(snapshot.docs.map((item) => ({ id: item.id, email: String(item.data().email || item.id), username: String(item.data().username || item.id.split("@")[0]), phone: String(item.data().phone || "—"), role: String(item.data().role || "cashier"), active: item.data().active !== false, permissions: Array.isArray(item.data().permissions) ? item.data().permissions : [] }))), onError);
 export const saveStaffRecord = (email: string, data: Partial<StaffRecord>) => setDoc(doc(db, "staff", email.toLowerCase()), { email: email.toLowerCase(), ...data, updatedAt: serverTimestamp() }, { merge: true });
 export const deleteStaffRecord = (email: string) => deleteDoc(doc(db, "staff", email.toLowerCase()));
+export type TableRecord = { id: string; number: string; name: string; active: boolean };
+const tableFromSnapshot = (snapshot: { id: string; data: () => Record<string, unknown> }): TableRecord => {
+  const data = snapshot.data();
+  return {
+    id: snapshot.id,
+    number: String(data.number || ""),
+    name: String(data.name || ""),
+    active: data.active !== false,
+  };
+};
+export const watchTables = (onChange: (tables: TableRecord[]) => void, onError: (error: Error) => void) =>
+  onSnapshot(collection(db, "tables"), (snapshot) => onChange(snapshot.docs.map(tableFromSnapshot)), onError);
+export const getTableRecord = async (id: string): Promise<TableRecord | null> => {
+  const snapshot = await getDoc(doc(db, "tables", id));
+  return snapshot.exists() ? tableFromSnapshot(snapshot as unknown as { id: string; data: () => Record<string, unknown> }) : null;
+};
+export const saveTableRecord = (table: TableRecord) =>
+  setDoc(doc(db, "tables", table.id), { number: table.number, name: table.name, active: table.active, updatedAt: serverTimestamp() }, { merge: true });
+export const deleteTableRecord = (id: string) => deleteDoc(doc(db, "tables", id));
 export const deleteMenuItem = (id: string | number) =>
   deleteDoc(doc(db, "menu", String(id)));
 export const createStaffAccount = async (email: string, password: string) => {
