@@ -169,6 +169,19 @@ export const watchStaffRecords = (onChange: (staff: StaffRecord[]) => void, onEr
   onSnapshot(collection(db, "staff"), (snapshot) => onChange(snapshot.docs.map((item) => ({ id: item.id, email: String(item.data().email || item.id), username: String(item.data().username || item.id.split("@")[0]), phone: String(item.data().phone || "—"), role: String(item.data().role || "cashier"), active: item.data().active !== false, permissions: Array.isArray(item.data().permissions) ? item.data().permissions : [] }))), onError);
 export const saveStaffRecord = (email: string, data: Partial<StaffRecord>) => setDoc(doc(db, "staff", email.toLowerCase()), { email: email.toLowerCase(), ...data, updatedAt: serverTimestamp() }, { merge: true });
 export const deleteStaffRecord = (email: string) => deleteDoc(doc(db, "staff", email.toLowerCase()));
+export const manageStaffAccount = async (payload: Record<string, unknown>) => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("unauthenticated");
+  const token = await user.getIdToken(true);
+  const response = await fetch("/api/admin-staff", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(String(result.error || "request-failed"));
+  return result;
+};
 export type TableRecord = { id: string; number: string; name: string; active: boolean };
 const tableFromSnapshot = (snapshot: { id: string; data: () => Record<string, unknown> }): TableRecord => {
   const data = snapshot.data();

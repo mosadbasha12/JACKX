@@ -63,6 +63,7 @@ import {
   watchStaffRecords,
   saveStaffRecord,
   deleteStaffRecord,
+  manageStaffAccount,
   watchTables,
   getTableRecord,
   saveTableRecord,
@@ -1181,13 +1182,16 @@ function Admin({
     e.preventDefault();
     if (!username.trim() || (!editingStaff && !password)) return;
     const email = `${username.trim().toLowerCase().replace(/\s+/g, "-")}@staff.jackx.app`;
-    if (!editingStaff) {
-      try { await createStaffAccountByUsername(username, password); } catch (error) {
-        if (!(error instanceof Error && error.message.includes("auth/email-already-in-use"))) throw error;
-      }
-    }
-    await saveStaffRecord(email, { username: username.trim(), phone: staffPhone.trim() || "—", role, active: true });
-    await setStaffRole(email, role);
+    await manageStaffAccount({
+      action: "save",
+      email,
+      previousEmail: editingStaff || "",
+      username: username.trim(),
+      password: password.trim(),
+      phone: staffPhone.trim() || "—",
+      role,
+      active: true,
+    });
     setUsername(""); setPassword(""); setStaffPhone(""); setEditingStaff(null);
     setSaved("تم حفظ المستخدم والصلاحية");
   };
@@ -1199,7 +1203,28 @@ function Admin({
     setUsername(""); setStaffPhone(""); setRole("cashier");
     setSaved("تم ربط الحساب القديم وظهر في قائمة المستخدمين");
   };
-  const toggleStaff = async (item: StaffRecord) => { await saveStaffRecord(item.email, { active: !item.active }); };
+  const toggleStaff = async (item: StaffRecord) => {
+    try {
+      await manageStaffAccount({ action: "save", email: item.email, username: item.username, phone: item.phone, role: item.role, active: !item.active });
+      setSaved(item.active ? "تم إيقاف الحساب" : "تم تشغيل الحساب");
+    } catch (error) {
+      console.error(error);
+      setSaved("تعذر تغيير حالة الحساب");
+    }
+    setTimeout(() => setSaved(""), 2500);
+  };
+  const removeStaff = async (item: StaffRecord) => {
+    if (!window.confirm(`حذف حساب ${item.username} نهائيًا؟`)) return;
+    try {
+      await manageStaffAccount({ action: "delete", email: item.email });
+      setStaffRecords((items) => items.filter((staff) => staff.id !== item.id));
+      setSaved("تم حذف الحساب من النظام");
+    } catch (error) {
+      console.error(error);
+      setSaved("تعذر حذف الحساب");
+    }
+    setTimeout(() => setSaved(""), 2500);
+  };
   const removeSettingsCategory = async (item: CategoryRecord) => {
     if (menuItems.some((product) => product.cat === item.name)) {
       setSaved("لا يمكن حذف قسم مرتبط بمنتجات؛ انقل المنتجات أولًا");
@@ -1734,7 +1759,7 @@ function Admin({
           </section>
           <section className="settings-card">
             <div className="settings-card-head"><div><span className="eyebrow">TEAM ACCESS</span><h2>إدارة المستخدمين والصلاحيات</h2><p>الصلاحيات والحالة تُحفظ من هنا مباشرة. كلمات المرور لا تُعرض لأسباب أمنية.</p></div><form onSubmit={saveStaffFromSettings}><input placeholder="اسم المستخدم" value={username} onChange={(e) => setUsername(e.target.value)} required /><input placeholder="رقم الهاتف" value={staffPhone} onChange={(e) => setStaffPhone(e.target.value)} /><input type={showPassword ? "text" : "password"} placeholder={editingStaff ? "كلمة مرور جديدة اختيارية" : "كلمة المرور"} minLength={editingStaff ? undefined : 6} required={!editingStaff} value={password} onChange={(e) => setPassword(e.target.value)} /><button type="button" className="show-password" onClick={() => setShowPassword(!showPassword)}>{showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}</button><select value={role} onChange={(e) => setRole(e.target.value)}><option value="cashier">كاشير</option><option value="admin">مدير</option></select><button className="btn" type="submit">{editingStaff ? "حفظ تعديل المستخدم" : "إضافة مستخدم جديد"}</button><button type="button" className="link-existing" onClick={() => void linkExistingStaff()}>ربط حساب موجود</button></form></div>
-            <div className="settings-table-wrap"><table className="settings-table"><thead><tr><th>#</th><th>اسم المستخدم</th><th>رقم الهاتف</th><th>البريد</th><th>الباسورد</th><th>الصلاحية</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>{filteredStaff.map((item, i) => <tr key={item.id}><td>{i + 1}</td><td><b>{item.username}</b></td><td>{item.phone}</td><td>{item.email}</td><td>••••••••</td><td><span className="role-badge">{item.role === "admin" || item.role === "مدير" ? "مدير" : "كاشير"}</span></td><td><button type="button" className={item.active ? "status-on" : "status-off"} onClick={() => void toggleStaff(item)}>{item.active ? "تشغيل" : "إيقاف"}</button></td><td><button type="button" onClick={() => { setEditingStaff(item.email); setUsername(item.username); setStaffPhone(item.phone === "—" ? "" : item.phone); setRole(item.role); }}>تعديل</button><button type="button" className="danger" onClick={() => void deleteStaffRecord(item.email)}>حذف</button></td></tr>)}</tbody></table></div>
+            <div className="settings-table-wrap"><table className="settings-table"><thead><tr><th>#</th><th>اسم المستخدم</th><th>رقم الهاتف</th><th>البريد</th><th>الباسورد</th><th>الصلاحية</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>{filteredStaff.map((item, i) => <tr key={item.id}><td>{i + 1}</td><td><b>{item.username}</b></td><td>{item.phone}</td><td>{item.email}</td><td>••••••••</td><td><span className="role-badge">{item.role === "admin" || item.role === "مدير" ? "مدير" : "كاشير"}</span></td><td><button type="button" className={item.active ? "status-on" : "status-off"} onClick={() => void toggleStaff(item)}>{item.active ? "تشغيل" : "إيقاف"}</button></td><td><button type="button" onClick={() => { setEditingStaff(item.email); setUsername(item.username); setStaffPhone(item.phone === "—" ? "" : item.phone); setRole(item.role); }}>تعديل / كلمة مرور</button><button type="button" className="danger" onClick={() => void removeStaff(item)}>حذف</button></td></tr>)}</tbody></table></div>
           </section>
           <section className="settings-card tables-card">
             <div className="settings-card-head">

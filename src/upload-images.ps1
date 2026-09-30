@@ -2,19 +2,32 @@ $ErrorActionPreference = "Stop"
 
 # JACKX image uploader
 # Put new product images in this folder, then run this file from PowerShell.
-$repoRoot = Split-Path -Parent $PSScriptRoot
 $repoOwner = "mosadbasha12"
 $repoName = "JACKX"
 $branch = "master"
-$repoFolder = "src"
-$rawBase = "https://raw.githubusercontent.com/$repoOwner/$repoName/$branch/$repoFolder"
 $imageExtensions = @(".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif")
 
-Set-Location $repoRoot
-
-if (-not (Test-Path (Join-Path $repoRoot ".git"))) {
-  throw "لم يتم العثور على مستودع Git في: $repoRoot"
+function Find-GitRoot {
+  param([string]$StartPath)
+  $current = (Resolve-Path $StartPath).Path
+  while ($current) {
+    if (Test-Path (Join-Path $current ".git")) { return $current }
+    $parent = Split-Path -Parent $current
+    if ($parent -eq $current) { break }
+    $current = $parent
+  }
+  return $null
 }
+
+$repoRoot = Find-GitRoot $PSScriptRoot
+
+if (-not $repoRoot) {
+  throw "انقل هذا المجلد داخل نسخة مشروع JACKX التي تحتوي على مجلد .git، ثم شغّل السكربت مرة أخرى."
+}
+
+Set-Location $repoRoot
+$repoFolder = [IO.Path]::GetRelativePath($repoRoot, $PSScriptRoot).Replace("\", "/")
+$rawBase = "https://raw.githubusercontent.com/$repoOwner/$repoName/$branch/$repoFolder"
 
 $images = Get-ChildItem -Path $PSScriptRoot -File |
   Where-Object { $imageExtensions -contains $_.Extension.ToLowerInvariant() }
